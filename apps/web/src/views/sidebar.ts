@@ -138,7 +138,10 @@ export function createSidebar(actions: Actions): Sidebar {
 
     body.replaceChildren(
       el('div', { class: 'brand' }, [
-        el('span', { class: 'brand-title' }, [flowerSvg('brand-flower'), t('app-title')]),
+        el('span', { class: 'brand-title' }, [
+          flowerSvg('brand-flower', '23 23 164 164'),
+          t('app-title'),
+        ]),
         el('span', { class: 'brand-tagline', text: t('app-tagline') }),
       ]),
       el('nav', { class: 'nav' }, [
