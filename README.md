@@ -4,8 +4,8 @@ A local-first AI frontend where translation is a first-class citizen.
 Runs in the browser, connects to AI backends that you already have, and keeps
 everything on your machine.
 
-PTT does not compile or manage backends. It talks to their OpenAI-compatible
-HTTP API, so you can use prebuilt binaries:
+PTT never compiles backends. It can fetch prebuilt binaries for you and talks
+to them over their OpenAI-compatible HTTP API:
 
 - **llama.cpp** — release binaries from the official project
 - **ik_llama.cpp** — prebuilt binaries published by Thireus
@@ -61,6 +61,39 @@ Inside a container, backends running on the host are reachable at
 ```bash
 npm run build:binary   # requires Bun; output: dist/ptt
 ```
+
+## Backend binaries
+
+PTT can download prebuilt binaries from GitHub releases and pick the build that
+matches your OS, CPU and GPU:
+
+```bash
+npm run backend:info      # detected platform, cpu, gpu, target priority
+npm run backend:list      # configured sources
+npm run backend:install   # download every configured backend
+npm run backend:install -- llama-cpp --dry-run
+npm run backend:install -- llama-cpp --version b12383
+npm run backend:install -- llama-cpp --target linux-x64-cpu
+```
+
+Use `--target` to force a build (for example `linux-x64-cpu` if the detected
+Vulkan build cannot load your driver).
+
+Binaries live in `.backends/<id>/<tag>/` (gitignored). The chosen server path is
+written to `.backends/<id>/installed.json`. Then start it, for example:
+
+```bash
+.backends/llama-cpp/<tag>/<dir>/llama-server -m model.gguf --port 8080
+```
+
+Everything is data-driven in `backends.json`: source repo, asset include/exclude
+patterns, preference order and server binary names. Add a backend or adapt to new
+asset naming by editing that file only. Patterns support `{cpu}`, `{cuda}`,
+`{os}` and `{arch}` placeholders.
+
+Detection is best-effort: NVIDIA via `nvidia-smi`, AMD via `rocminfo`/`rocm-smi`,
+Intel/others via `lspci` (Linux) or WMI (Windows), Apple Metal on macOS. Set
+`GITHUB_TOKEN` to avoid GitHub API rate limits.
 
 ## Development
 

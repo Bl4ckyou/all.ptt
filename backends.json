@@ -1,0 +1,77 @@
+{
+  "$comment": "Data-driven binary sources. Patterns are matched against GitHub release asset names. Placeholders: {cpu}, {cuda}, {os}, {arch}.",
+  "backends": {
+    "llama-cpp": {
+      "label": "llama.cpp",
+      "repo": "ggml-org/llama.cpp",
+      "binaries": ["llama-server", "llama-server.exe"],
+      "selection": [
+        {
+          "targets": ["linux-x64-cuda"],
+          "include": "bin-ubuntu-cuda-.*-x64\\.tar\\.gz$",
+          "exclude": ["^cudart-"],
+          "prefer": ["cuda-12\\..*-x64\\.tar\\.gz$", "cuda-.*-x64\\.tar\\.gz$"]
+        },
+        { "targets": ["linux-x64-rocm"], "include": "bin-ubuntu-rocm-.*-x64\\.tar\\.gz$" },
+        { "targets": ["linux-x64-vulkan"], "include": "bin-ubuntu-vulkan-x64\\.tar\\.gz$" },
+        { "targets": ["linux-x64-cpu"], "include": "bin-ubuntu-x64\\.tar\\.gz$" },
+        { "targets": ["linux-arm64-cpu"], "include": "bin-ubuntu-arm64\\.tar\\.gz$" },
+        { "targets": ["darwin-arm64-metal"], "include": "bin-macos-arm64\\.tar\\.gz$" },
+        { "targets": ["darwin-x64-cpu"], "include": "bin-macos-x64\\.tar\\.gz$" },
+        {
+          "targets": ["win-x64-cuda"],
+          "include": "bin-win-cuda-.*-x64\\.zip$",
+          "exclude": ["^cudart-"],
+          "prefer": ["cuda-12\\..*-x64\\.zip$", "cuda-.*-x64\\.zip$"]
+        },
+        { "targets": ["win-x64-vulkan"], "include": "bin-win-vulkan-x64\\.zip$" },
+        { "targets": ["win-x64-rocm"], "include": "bin-win-rocm-.*-x64\\.zip$" },
+        { "targets": ["win-x64-cpu"], "include": "bin-win-cpu-x64\\.zip$" },
+        { "targets": ["win-arm64-cpu"], "include": "bin-win-cpu-arm64\\.zip$" }
+      ]
+    },
+    "ik-llama-cpp": {
+      "label": "ik_llama.cpp (Thireus)",
+      "repo": "Thireus/ik_llama.cpp",
+      "binaries": ["llama-server", "llama-server.exe"],
+      "selection": [
+        {
+          "targets": ["linux-x64-cuda"],
+          "include": "ik_llama-main-.*-bin-ubuntu-cuda-.*-x64-.*\\.zip$",
+          "prefer": [
+            "cuda-12\\.8-x64-{cpu}\\.zip$",
+            "cuda-12\\..*-x64-{cpu}\\.zip$",
+            "cuda-.*-x64-{cpu}\\.zip$",
+            "cuda-.*-x64-avx2\\.zip$"
+          ]
+        },
+        {
+          "targets": ["linux-x64-vulkan"],
+          "include": "ik_llama-main-.*-bin-ubuntu-vulkan-x64-.*\\.zip$",
+          "prefer": ["-{cpu}\\.zip$", "-avx2\\.zip$"]
+        },
+        {
+          "targets": ["linux-x64-cpu"],
+          "include": "ik_llama-main-.*-bin-ubuntu-x64-.*\\.zip$",
+          "prefer": ["-{cpu}\\.zip$", "-avx2\\.zip$"]
+        },
+        {
+          "targets": ["win-x64-cuda"],
+          "include": "ik_llama-main-.*-bin-win-cuda-.*-x64-.*\\.zip$",
+          "prefer": [
+            "cuda-12\\.8-x64-{cpu}\\.zip$",
+            "cuda-12\\..*-x64-{cpu}\\.zip$",
+            "cuda-.*-x64-{cpu}\\.zip$",
+            "cuda-.*-x64-avx2\\.zip$"
+          ]
+        },
+        {
+          "targets": ["win-x64-cpu"],
+          "include": "ik_llama-main-.*-bin-win-cpu-.*\\.zip$",
+          "exclude": ["arm64"],
+          "prefer": ["win-cpu-x64-{cpu}\\.zip$", "win-cpu-x64-avx2\\.zip$", "win-cpu-.*-{cpu}\\.zip$"]
+        }
+      ]
+    }
+  }
+}
