@@ -1031,21 +1031,6 @@ select.control {
   overflow-y: auto;
   padding-right: 4px;
   transition: opacity 0.15s ease;
-  --edge-fade: 14px;
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 var(--edge-fade),
-    #000 calc(100% - var(--edge-fade)),
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 var(--edge-fade),
-    #000 calc(100% - var(--edge-fade)),
-    transparent 100%
-  );
 }
 
 .settings-host.loading {

@@ -66,6 +66,16 @@
       "repo": "ggml-org/llama.cpp",
       "defaultVariant": "auto",
       "binaries": ["llama-server", "llama-server.exe"],
+      "categorySpecTypes": {
+        "assistant": "draft-simple",
+        "mtp": "draft-mtp",
+        "dflash": "draft-dflash",
+        "dflash2": "draft-dflash2",
+        "dspark": "draft-dspark",
+        "eagle3": "draft-eagle3",
+        "lilicorr": "draft-lilicorr",
+        "other": "draft-simple"
+      },
       "settings": {
         "context-size": "--ctx-size",
         "gpu-layers": "--n-gpu-layers",
@@ -157,6 +167,13 @@
       "repo": "Thireus/ik_llama.cpp",
       "defaultVariant": "cpu",
       "binaries": ["llama-server", "llama-server.exe"],
+      "categorySpecTypes": {
+        "assistant": "draft",
+        "mtp": "mtp",
+        "dflash": "dflash",
+        "dspark": "dspark",
+        "other": "draft"
+      },
       "settings": {
         "context-size": "--ctx-size",
         "gpu-layers": "--gpu-layers",

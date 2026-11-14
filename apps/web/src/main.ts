@@ -22,9 +22,9 @@ import { el } from './dom.js';
 import { loadI18n, readStoredLocale, storeLocale } from './i18n.js';
 import { notify, state, subscribe } from './state.js';
 import type {
+  BackendSettingsInfo,
   LocalModelInfo,
   ModelConfigInfo,
-  ResolvedSettingInfo,
   SettingValue,
 } from './types.js';
 import { createChat } from './views/chat.js';
@@ -143,8 +143,8 @@ async function revealPathAction(target: string): Promise<void> {
   }
 }
 
-async function getBackendSettingsAction(backendId: string): Promise<ResolvedSettingInfo[]> {
-  return (await getBackendSettings(backendId)).settings;
+async function getBackendSettingsAction(backendId: string): Promise<BackendSettingsInfo> {
+  return getBackendSettings(backendId);
 }
 
 async function getModelConfigAction(path: string): Promise<ModelConfigInfo | null> {

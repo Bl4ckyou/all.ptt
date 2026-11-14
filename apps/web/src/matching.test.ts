@@ -126,7 +126,10 @@ describe('draftCategory', () => {
   it('classifies assistant, dflash, dspark and mtp files', () => {
     expect(draftCategory('gemma-3-4b-assistant')).toBe('assistant');
     expect(draftCategory('gemma-3-4b-dflash')).toBe('dflash');
+    expect(draftCategory('gemma-3-4b-dflash2')).toBe('dflash2');
     expect(draftCategory('gemma-3-4b-dspark')).toBe('dspark');
+    expect(draftCategory('gemma-3-4b-eagle3')).toBe('eagle3');
+    expect(draftCategory('gemma-3-4b-lilicorr')).toBe('lilicorr');
     expect(draftCategory('gemma-3-4b-mtp')).toBe('mtp');
     expect(draftCategory('gemma-3-4b')).toBe('other');
   });

@@ -186,3 +186,6 @@ file-category-dspark = DSpark
 file-category-mtp = MTP
 file-category-other = Other models
 chat-model-none = No model selected
+file-category-dflash2 = DFlash2
+file-category-eagle3 = Eagle3
+file-category-lilicorr = LiliCorr

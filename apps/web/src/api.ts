@@ -2,6 +2,7 @@ import type { ChatEvent, ChatMessage, ModelInfo } from '@ptt/core';
 import type { GgufModelInfo } from '@ptt/core';
 import type {
   AuxiliaryFile,
+  BackendSettingsInfo,
   BackendsInfo,
   LocalModelInfo,
   ModelConfigInfo,
@@ -88,12 +89,10 @@ export async function revealPath(target: string): Promise<void> {
   if (!response.ok) throw new Error('failed to open folder');
 }
 
-export async function getBackendSettings(
-  backendId: string,
-): Promise<{ settings: ResolvedSettingInfo[]; probed: boolean }> {
+export async function getBackendSettings(backendId: string): Promise<BackendSettingsInfo> {
   const response = await fetch(`/api/backends/settings?backendId=${encodeURIComponent(backendId)}`);
   if (!response.ok) throw new Error('failed to load settings');
-  return (await response.json()) as { settings: ResolvedSettingInfo[]; probed: boolean };
+  return (await response.json()) as BackendSettingsInfo;
 }
 
 export async function getModelConfig(path: string): Promise<ModelConfigInfo | null> {

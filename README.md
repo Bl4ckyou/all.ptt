@@ -129,13 +129,16 @@ speculative decoding, multimodal, MTP). File settings such as the draft model or
 the mmproj projector use a searchable picker with easy clearing; mmproj files are
 ranked by the model's repository and name so the relevant projectors come first.
 Speculative decoding supports file-less types (n-gram, suffix, MTP) with parameters
-that appear only for the selected type. GGUF files are classified from their
-metadata (`general.architecture`, `general.type`, `general.tags`), so renamed
-MTP/assistant/mmproj files are still detected correctly. Draft matching also
-compares the base architecture and context length, so an E2B model only offers
-E2B MTP files and not 26B or unrelated ones. OS-specific options (for
-example Linux-only CPU affinity) are hidden on other platforms. Settings are saved
-per model in `.ptt/model-configs.json` and applied when the model is launched.
+that appear only for the selected type. Selecting a draft file also sets the matching
+speculative type automatically (for example MTP becomes `draft-mtp` on llama.cpp and
+`mtp` on ik_llama.cpp), and categories unsupported by the current backend are hidden.
+GGUF files are classified from their metadata (`general.architecture`, `general.type`,
+`general.tags`), so renamed MTP/assistant/eagle3/lilicorr/mmproj files are still
+detected correctly. Draft matching also compares the base architecture and context
+length, so an E2B model only offers E2B MTP files and not 26B or unrelated ones.
+OS-specific options (for example Linux-only CPU affinity) are hidden on other
+platforms. Settings are saved per model in `.ptt/model-configs.json` and applied when
+the model is launched.
 
 The settings panel also shows a live memory estimate (RAM / VRAM) computed from the
 model's GGUF metadata (layers, embedding size, KV heads), the context size, GPU

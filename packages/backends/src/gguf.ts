@@ -191,7 +191,15 @@ export async function readGgufInfo(path: string): Promise<GgufModelInfo> {  cons
   }
 }
 
-export type GgufCategory = 'assistant' | 'dflash' | 'dspark' | 'mtp' | 'other';
+export type GgufCategory =
+  | 'assistant'
+  | 'dflash'
+  | 'dflash2'
+  | 'dspark'
+  | 'eagle3'
+  | 'lilicorr'
+  | 'mtp'
+  | 'other';
 
 export interface GgufSignature {
   architecture: string | null;
@@ -395,7 +403,12 @@ export function classifyGguf(
   if (isMmproj) return { kind: 'mmproj', category: 'other' };
 
   let category: GgufCategory = 'other';
-  if (wordMatch(haystack, 'dspark')) category = 'dspark';
+  const compact = haystack.replace(/[^a-z0-9]/g, '');
+
+  if (compact.includes('lilicorr')) category = 'lilicorr';
+  else if (compact.includes('eagle3')) category = 'eagle3';
+  else if (compact.includes('dflash2')) category = 'dflash2';
+  else if (wordMatch(haystack, 'dspark')) category = 'dspark';
   else if (wordMatch(haystack, 'dflash')) category = 'dflash';
   else if (wordMatch(haystack, 'mtp')) category = 'mtp';
   else if (wordMatch(haystack, 'assistant') || wordMatch(haystack, 'draft')) category = 'assistant';

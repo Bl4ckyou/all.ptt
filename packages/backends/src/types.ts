@@ -78,6 +78,7 @@ export interface BackendEntry {
   defaultVariant: string;
   binaries: string[];
   settings?: Record<string, SettingMapping>;
+  categorySpecTypes?: Record<string, string>;
   selection: SelectionRule[];
 }
 

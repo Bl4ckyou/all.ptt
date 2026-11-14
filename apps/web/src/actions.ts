@@ -1,8 +1,8 @@
 import type { GgufModelInfo } from '@ptt/core';
 import type {
+  BackendSettingsInfo,
   LocalModelInfo,
   ModelConfigInfo,
-  ResolvedSettingInfo,
   SettingValue,
 } from './types.js';
 
@@ -19,7 +19,7 @@ export interface Actions {
   updateBackends(): Promise<void>;
   scanModels(): Promise<void>;
   revealPath(target: string): Promise<void>;
-  getBackendSettings(backendId: string): Promise<ResolvedSettingInfo[]>;
+  getBackendSettings(backendId: string): Promise<BackendSettingsInfo>;
   getModelConfig(path: string): Promise<ModelConfigInfo | null>;
   getModelInfo(path: string): Promise<GgufModelInfo | null>;
   saveModelConfig(

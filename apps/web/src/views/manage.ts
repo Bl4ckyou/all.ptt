@@ -57,6 +57,7 @@ export function createManage(actions: Actions): Manage {
   let configValues: Record<string, SettingValue> = {};
   let configExtra = '';
   let configInfo: GgufModelInfo | null = null;
+  let configSpecTypes: Record<string, string> = {};
   let configSaving = false;
   let configError: string | null = null;
   let configNode: HTMLElement | null = null;
@@ -221,7 +222,10 @@ export function createManage(actions: Actions): Manage {
     const CATEGORY_RANK: Record<string, number> = {
       assistant: 0,
       dflash: 0,
+      dflash2: 0,
       dspark: 0,
+      eagle3: 0,
+      lilicorr: 0,
       mtp: 0,
       other: 1,
     };
@@ -247,10 +251,15 @@ export function createManage(actions: Actions): Manage {
       )
       .map((entry) => entry.file);
 
+    const supportedCategories = Object.keys(configSpecTypes);
     const categories =
       setting.fileKind === 'model'
-        ? (['assistant', 'dflash', 'dspark', 'mtp', 'other'] as const).filter((category) =>
-            base.some((file) => categoryOf(file) === category),
+        ? (
+            ['assistant', 'dflash', 'dflash2', 'dspark', 'eagle3', 'lilicorr', 'mtp', 'other'] as const
+          ).filter(
+            (category) =>
+              base.some((file) => categoryOf(file) === category) &&
+              (supportedCategories.length === 0 || supportedCategories.includes(category)),
           )
         : [];
     let activeCategory: string = 'all';
@@ -335,11 +344,19 @@ export function createManage(actions: Actions): Manage {
               class: 'file-option',
               attrs: { type: 'button' },
               on: {
-                click: () => {
-                  configValues[setting.id] = file.path;
-                  input.value = file.path;
-                  refresh();
-                },
+              click: () => {
+                configValues[setting.id] = file.path;
+                if (setting.fileKind === 'model') {
+                  const specType = configSpecTypes[categoryOf(file)];
+                  if (specType) {
+                    configValues['spec-type'] = specType;
+                    renderSettings();
+                    return;
+                  }
+                }
+                input.value = file.path;
+                refresh();
+              },
               },
             },
             [
@@ -553,13 +570,14 @@ export function createManage(actions: Actions): Manage {
     updateEstimate();
 
     try {
-      const [settings, config, info] = await Promise.all([
+      const [settingsInfo, config, info] = await Promise.all([
         actions.getBackendSettings(configBackend),
         actions.getModelConfig(model.path),
         actions.getModelInfo(model.path),
       ]);
-      configSettings = settings;
-      configValues = defaultValues(settings, config?.settings ?? {});
+      configSettings = settingsInfo.settings;
+      configSpecTypes = settingsInfo.categorySpecTypes ?? {};
+      configValues = defaultValues(configSettings, config?.settings ?? {});
       configExtra = config?.extraArgs ?? '';
       configInfo = info;
 
@@ -673,6 +691,7 @@ export function createManage(actions: Actions): Manage {
     configValues = {};
     configExtra = '';
     configInfo = null;
+    configSpecTypes = {};
     configError = null;
     configSaving = false;
 

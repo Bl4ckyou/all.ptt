@@ -162,6 +162,15 @@ describe('classifyGguf', () => {
     );
   });
 
+  it('recognizes dflash2, eagle3 and lilicorr', () => {
+    const base = sig({ generalType: 'model' });
+    expect(classifyGguf('a.gguf', { ...base, name: 'DFlash2' }).category).toBe('dflash2');
+    expect(classifyGguf('b.gguf', { ...base, tags: ['Eagle3'] }).category).toBe('eagle3');
+    expect(classifyGguf('c.gguf', { ...base, architecture: 'gemma4-lilicorr' }).category).toBe(
+      'lilicorr',
+    );
+  });
+
   it('keeps regular models as other', () => {
     expect(
       classifyGguf(

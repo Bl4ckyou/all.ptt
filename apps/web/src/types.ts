@@ -57,7 +57,15 @@ export interface LocalModelInfo {
   name: string;
   size: number;
   source: string;
-  category?: 'assistant' | 'dflash' | 'dspark' | 'mtp' | 'other';
+  category?:
+    | 'assistant'
+    | 'dflash'
+    | 'dflash2'
+    | 'dspark'
+    | 'eagle3'
+    | 'lilicorr'
+    | 'mtp'
+    | 'other';
   architecture?: string | null;
   blockCount?: number | null;
   embeddingLength?: number | null;
@@ -90,4 +98,10 @@ export interface ModelConfigInfo {
   settings: Record<string, SettingValue>;
   extraArgs: string;
   updatedAt?: string;
+}
+
+export interface BackendSettingsInfo {
+  settings: ResolvedSettingInfo[];
+  categorySpecTypes: Record<string, string>;
+  probed: boolean;
 }

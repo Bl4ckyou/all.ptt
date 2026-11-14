@@ -141,4 +141,12 @@ describe('manifest', () => {
   it('does not expose removed settings', () => {
     expect(manifest.settings['smart-expert-reduction']).toBeUndefined();
   });
+
+  it('maps draft categories to speculative types per backend', () => {
+    expect(manifest.backends['llama-cpp'].categorySpecTypes?.eagle3).toBe('draft-eagle3');
+    expect(manifest.backends['llama-cpp'].categorySpecTypes?.lilicorr).toBe('draft-lilicorr');
+    expect(manifest.backends['llama-cpp'].categorySpecTypes?.dflash2).toBe('draft-dflash2');
+    expect(manifest.backends['ik-llama-cpp'].categorySpecTypes?.mtp).toBe('mtp');
+    expect(manifest.backends['ik-llama-cpp'].categorySpecTypes?.eagle3).toBeUndefined();
+  });
 });

@@ -68,11 +68,28 @@ export function draftMatchScore(file: LocalModelInfo, model: LocalModelInfo | nu
   return score;
 }
 
-export function draftCategory(name: string): 'assistant' | 'dflash' | 'dspark' | 'mtp' | 'other' {
+export function draftCategory(
+  name: string,
+):
+  | 'assistant'
+  | 'dflash'
+  | 'dflash2'
+  | 'dspark'
+  | 'eagle3'
+  | 'lilicorr'
+  | 'mtp'
+  | 'other' {
   const lower = name.toLowerCase();
-  if (/(^|[-_.])dflash/i.test(lower)) return 'dflash';
-  if (/(^|[-_.])dspark/i.test(lower)) return 'dspark';
-  if (/(^|[-_.])mtp/i.test(lower)) return 'mtp';
-  if (/(^|[-_.])(assistant|draft)/i.test(lower)) return 'assistant';
+  const compact = lower.replace(/[^a-z0-9]/g, '');
+  const has = (word: string): boolean =>
+    new RegExp(`(^|[-_. ])${word}([-_. ]|$)`, 'i').test(lower);
+
+  if (compact.includes('lilicorr')) return 'lilicorr';
+  if (compact.includes('eagle3')) return 'eagle3';
+  if (compact.includes('dflash2')) return 'dflash2';
+  if (has('dspark')) return 'dspark';
+  if (has('dflash')) return 'dflash';
+  if (has('mtp')) return 'mtp';
+  if (has('assistant') || has('draft')) return 'assistant';
   return 'other';
 }

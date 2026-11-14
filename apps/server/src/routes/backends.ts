@@ -70,6 +70,7 @@ export function backendSettingsRoute(context: AppContext): Handler {
     sendJson(res, 200, {
       probed,
       settings: settings.map(({ flag: _flag, invert: _invert, ...rest }) => rest),
+      categorySpecTypes: backend.categorySpecTypes ?? {},
     });
   };
 }
