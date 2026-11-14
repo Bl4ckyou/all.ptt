@@ -1,0 +1,11 @@
+{
+  "host": "127.0.0.1",
+  "port": 4750,
+  "providers": [
+    {
+      "id": "llama-cpp",
+      "kind": "llama-cpp",
+      "baseUrl": "http://127.0.0.1:8080/v1"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "name": "ptt",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local-first AI frontend with translation as a first-class citizen.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "assets": "node scripts/generate-assets.mjs",
+    "predev:server": "npm run assets",
+    "dev:server": "tsx watch apps/server/src/index.ts",
+    "dev:web": "vite --config apps/web/vite.config.ts",
+    "build:web": "vite build --config apps/web/vite.config.ts",
+    "build:server": "npm run assets && node scripts/build-server.mjs",
+    "build": "npm run build:web && npm run build:server",
+    "build:binary": "npm run build:web && npm run assets && node scripts/build-binary.mjs",
+    "start": "node dist/server.js",
+    "pretest": "npm run assets",
+    "test": "vitest run",
+    "pretypecheck": "npm run assets",
+    "typecheck": "tsc --noEmit",
+    "check:i18n": "node scripts/check-i18n.mjs",
+    "check": "npm run typecheck && npm run check:i18n && npm run test"
+  },
+  "devDependencies": {
+    "@fluent/syntax": "^0.19.0",
+    "@types/node": "^22.9.0",
+    "esbuild": "^0.24.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.5"
+  }
+}

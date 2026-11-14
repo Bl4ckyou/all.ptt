@@ -1,0 +1,11 @@
+{
+  "name": "@ptt/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@ptt/core": "*",
+    "@ptt/i18n": "*",
+    "@ptt/providers": "*"
+  }
+}
