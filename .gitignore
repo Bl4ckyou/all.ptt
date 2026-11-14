@@ -7,3 +7,4 @@ config.json
 .sea/
 apps/server/src/generated/
 .backends/
+.ptt/

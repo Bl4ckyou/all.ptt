@@ -2,7 +2,10 @@ import type { ChatEvent, ChatMessage, ModelInfo } from '@ptt/core';
 import type {
   BackendsInfo,
   LocalModelInfo,
+  ModelConfigInfo,
   ProviderSummary,
+  ResolvedSettingInfo,
+  SettingValue,
 } from './types.js';
 
 export interface LocaleMeta {
@@ -71,6 +74,34 @@ export async function revealPath(target: string): Promise<void> {
     body: JSON.stringify({ path: target }),
   });
   if (!response.ok) throw new Error('failed to open folder');
+}
+
+export async function getBackendSettings(
+  backendId: string,
+): Promise<{ settings: ResolvedSettingInfo[]; probed: boolean }> {
+  const response = await fetch(`/api/backends/settings?backendId=${encodeURIComponent(backendId)}`);
+  if (!response.ok) throw new Error('failed to load settings');
+  return (await response.json()) as { settings: ResolvedSettingInfo[]; probed: boolean };
+}
+
+export async function getModelConfig(path: string): Promise<ModelConfigInfo | null> {
+  const response = await fetch(`/api/models/config?path=${encodeURIComponent(path)}`);
+  if (!response.ok) throw new Error('failed to load model config');
+  const body = (await response.json()) as { config: ModelConfigInfo | null };
+  return body.config;
+}
+
+export async function saveModelConfig(
+  path: string,
+  settings: Record<string, SettingValue>,
+  extraArgs: string,
+): Promise<void> {
+  const response = await fetch('/api/models/config', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ path, settings, extraArgs }),
+  });
+  if (!response.ok) throw new Error('failed to save model config');
 }
 
 export interface LaunchResult {

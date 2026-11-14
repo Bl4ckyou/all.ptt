@@ -1,4 +1,9 @@
-import type { LocalModelInfo } from './types.js';
+import type {
+  LocalModelInfo,
+  ModelConfigInfo,
+  ResolvedSettingInfo,
+  SettingValue,
+} from './types.js';
 
 export interface Actions {
   send(text: string): void;
@@ -13,6 +18,13 @@ export interface Actions {
   updateBackends(): Promise<void>;
   scanModels(): Promise<void>;
   revealPath(target: string): Promise<void>;
+  getBackendSettings(backendId: string): Promise<ResolvedSettingInfo[]>;
+  getModelConfig(path: string): Promise<ModelConfigInfo | null>;
+  saveModelConfig(
+    path: string,
+    settings: Record<string, SettingValue>,
+    extraArgs: string,
+  ): Promise<void>;
   launchModel(model: LocalModelInfo, backendId: string): Promise<void>;
   stopBackend(providerId: string): Promise<void>;
 }

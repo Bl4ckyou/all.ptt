@@ -115,9 +115,16 @@ Open the **Manage** tab in the sidebar:
 
 - see detected hardware and the recommended backend;
 - install or update a backend variant with one click;
-- scan the Hugging Face cache for GGUF models;
-- launch a model with an installed backend (a free port is picked automatically);
+- scan the Hugging Face cache for GGUF models, search and sort them, mark favorites;
+- open a model's folder in the file manager;
+- configure a model with per-model settings, then launch it with an installed backend;
 - stop a running backend.
+
+Model settings are **semantic**: the UI shows "Context size" or "GPU layers", never
+raw flags. Each backend maps them to its own flag, and the supported settings are
+discovered from the installed binary's `--help`. Renamed flags or new versions are
+therefore handled automatically. Settings are saved per model in
+`.ptt/model-configs.json` and applied when the model is launched.
 
 Extra model folders can be configured in `config.json`:
 

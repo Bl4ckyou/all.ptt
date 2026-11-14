@@ -15,6 +15,7 @@ export interface LaunchOptions {
   backendId?: string;
   modelPath: string;
   port?: number;
+  extraArgs?: string[];
 }
 
 interface ProcessEntry extends RunningBackend {
@@ -74,7 +75,15 @@ export class BackendLauncher {
 
     const child = spawn(
       resolved.record.binary,
-      ['-m', options.modelPath, '--host', '127.0.0.1', '--port', String(port)],
+      [
+        '-m',
+        options.modelPath,
+        '--host',
+        '127.0.0.1',
+        '--port',
+        String(port),
+        ...(options.extraArgs ?? []),
+      ],
       { stdio: ['ignore', 'pipe', 'pipe'] },
     );
 

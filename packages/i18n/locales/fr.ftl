@@ -49,3 +49,40 @@ manage-open-folder = Ouvrir le dossier
 manage-favorite = Ajouter aux favoris
 manage-unfavorite = Retirer des favoris
 manage-model-count = { $count } modèles
+manage-sort = Trier
+sort-favorites = Favoris d'abord
+sort-name-asc = Nom A–Z
+sort-name-desc = Nom Z–A
+sort-size-asc = Plus petits d'abord
+sort-size-desc = Plus grands d'abord
+manage-model-config = Réglages du modèle
+manage-config-save = Enregistrer
+manage-config-cancel = Annuler
+manage-config-extra = Arguments supplémentaires
+manage-config-extra-hint = Arguments bruts ajoutés à la commande du backend.
+manage-config-none = Aucun réglage disponible pour ce backend.
+error-config = Impossible d'enregistrer les réglages.
+setting-context-size = Taille du contexte
+setting-context-size-desc = Nombre de tokens gardés en contexte. Plus haut = plus de mémoire.
+setting-gpu-layers = Couches GPU
+setting-gpu-layers-desc = Combien de couches du modèle tournent sur le GPU. 0 = tout sur le CPU.
+setting-threads = Threads CPU
+setting-threads-desc = Threads utilisés pour la génération. -1 laisse le backend décider.
+setting-batch-size = Taille de batch
+setting-batch-size-desc = Taille logique du batch pour le prompt. Plus grand = plus rapide mais plus de mémoire.
+setting-flash-attention = Flash attention
+setting-flash-attention-desc = Implémentation d'attention plus rapide. Auto laisse le backend choisir.
+setting-parallel = Slots parallèles
+setting-parallel-desc = Nombre de requêtes traitées en même temps par le serveur.
+setting-mmap = Mapping mémoire
+setting-mmap-desc = Charge le modèle via le mapping mémoire. Désactive-le si le démarrage est lent.
+setting-mlock = Verrouiller en RAM
+setting-mlock-desc = Empêche le système de swapper le modèle sur le disque.
+setting-temperature = Température
+setting-temperature-desc = Aléa de la sortie. Plus bas = plus déterministe.
+setting-top-p = Top-p
+setting-top-p-desc = Seuil d'échantillonnage nucleus. Plus bas = tokens plus probables.
+setting-run-time-repack = Repacking à l'exécution
+setting-run-time-repack-desc = ik_llama uniquement : repacke les tenseurs au démarrage pour accélérer.
+setting-smart-expert-reduction = Réduction intelligente des experts
+setting-smart-expert-reduction-desc = ik_llama uniquement : réduit les experts des modèles MoE pour économiser la mémoire.

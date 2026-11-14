@@ -6,7 +6,14 @@ export type {
   Manifest,
   ManifestDefaults,
   ReleaseAsset,
+  ResolvedSetting,
   SelectionRule,
+  SettingCategory,
+  SettingDefinition,
+  SettingMapping,
+  SettingType,
+  SettingValue,
+  SettingsCatalog,
   SyncRecord,
   SyncResult,
   Target,
@@ -41,5 +48,20 @@ export { scanLocalModels } from './models.js';
 export type { LocalModel } from './models.js';
 export { listModelDirectories } from './models.js';
 export { revealPath } from './reveal.js';
+export {
+  buildSettingArgs,
+  discoverFlags,
+  parseExtraArgs,
+  parseLongFlags,
+  resolveSettings,
+} from './settings.js';
+export type { ResolvedSettingWithFlag } from './settings.js';
+export {
+  configsPath,
+  readModelConfig,
+  readModelConfigs,
+  writeModelConfig,
+} from './configs.js';
+export type { ModelConfig, ModelConfigMap } from './configs.js';
 export { BackendLauncher, findFreePort } from './launch.js';
 export type { LaunchOptions, RunningBackend } from './launch.js';

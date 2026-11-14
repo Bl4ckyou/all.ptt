@@ -1,14 +1,17 @@
 import { detectLocale } from '@ptt/i18n';
 import type { Actions } from './actions.js';
 import {
+  getBackendSettings,
   getBackends,
   getLocales,
   getLocalModels,
+  getModelConfig,
   getModels,
   getProviders,
   installBackend,
   launchBackend,
   revealPath as revealPathRequest,
+  saveModelConfig,
   stopBackend,
   streamChat,
   updateBackends,
@@ -16,7 +19,12 @@ import {
 import { el } from './dom.js';
 import { loadI18n, readStoredLocale, storeLocale } from './i18n.js';
 import { notify, state, subscribe } from './state.js';
-import type { LocalModelInfo } from './types.js';
+import type {
+  LocalModelInfo,
+  ModelConfigInfo,
+  ResolvedSettingInfo,
+  SettingValue,
+} from './types.js';
 import { createChat } from './views/chat.js';
 import { createManage } from './views/manage.js';
 import { createSidebar } from './views/sidebar.js';
@@ -25,9 +33,8 @@ let activeRequest: AbortController | null = null;
 
 async function refreshModels(): Promise<void> {
   try {
-    const { models, errors } = await getModels();
+    const { models } = await getModels();
     state.models = models;
-    state.error = errors.length > 0 && models.length === 0 ? 'error-provider' : null;
 
     const stillValid = models.some(
       (model) => model.id === state.model && model.provider === state.providerId,
@@ -38,7 +45,7 @@ async function refreshModels(): Promise<void> {
       state.model = first?.id ?? null;
     }
   } catch {
-    state.error = 'error-provider';
+    // no provider reachable yet; the user can launch one from Manage
   }
   notify();
 }
@@ -77,6 +84,9 @@ function setModel(id: string): void {
 
 function setView(view: 'chat' | 'manage'): void {
   state.view = view;
+  if (view === 'manage' && (state.error === 'error-provider' || state.error === 'error-no-model')) {
+    state.error = null;
+  }
   notify();
 }
 
@@ -127,6 +137,22 @@ async function revealPathAction(target: string): Promise<void> {
     state.error = 'error-backend';
     notify();
   }
+}
+
+async function getBackendSettingsAction(backendId: string): Promise<ResolvedSettingInfo[]> {
+  return (await getBackendSettings(backendId)).settings;
+}
+
+async function getModelConfigAction(path: string): Promise<ModelConfigInfo | null> {
+  return getModelConfig(path);
+}
+
+async function saveModelConfigAction(
+  path: string,
+  settings: Record<string, SettingValue>,
+  extraArgs: string,
+): Promise<void> {
+  await saveModelConfig(path, settings, extraArgs);
 }
 
 async function launchModel(model: LocalModelInfo, backendId: string): Promise<void> {
@@ -233,6 +259,9 @@ const actions: Actions = {
   updateBackends: updateBackendsAction,
   scanModels,
   revealPath: revealPathAction,
+  getBackendSettings: getBackendSettingsAction,
+  getModelConfig: getModelConfigAction,
+  saveModelConfig: saveModelConfigAction,
   launchModel,
   stopBackend: stopBackendAction,
 };

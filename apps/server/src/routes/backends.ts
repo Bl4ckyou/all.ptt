@@ -1,7 +1,11 @@
 import {
+  buildSettingArgs,
   detectTarget,
   readInstalledStates,
+  readModelConfig,
   recommendBackend,
+  resolveInstalledBinary,
+  resolveSettings,
   syncBackend,
   type BackendEntry,
 } from '@ptt/backends';
@@ -43,6 +47,29 @@ export function backendsRoute(context: AppContext): Handler {
       recommended: recommendBackend(target, context.manifest.defaults),
       backends,
       running: context.launcher.list(),
+    });
+  };
+}
+
+export function backendSettingsRoute(context: AppContext): Handler {
+  return async ({ url, res }) => {
+    const id = url.searchParams.get('backendId') ?? '';
+    const backend = context.manifest.backends[id];
+    if (!backend) {
+      sendError(res, 400, 'error.unknown_backend');
+      return;
+    }
+
+    const resolved = await resolveInstalledBinary(context.root, id);
+    const { settings, probed } = await resolveSettings(
+      resolved?.record.binary ?? null,
+      backend,
+      context.manifest.settings,
+    );
+
+    sendJson(res, 200, {
+      probed,
+      settings: settings.map(({ flag: _flag, invert: _invert, ...rest }) => rest),
     });
   };
 }
@@ -151,10 +178,29 @@ export function launchBackendRoute(context: AppContext): Handler {
     }
 
     try {
+      const resolved = await resolveInstalledBinary(context.root, body.backendId);
+      if (!resolved) {
+        sendJson(res, 400, { error: 'error.not_installed' });
+        return;
+      }
+
+      const backendId = resolved.backendId;
+      const backend = context.manifest.backends[backendId];
+      const config = await readModelConfig(context.root, body.modelPath);
+      const extraArgs = backend
+        ? buildSettingArgs(
+            backend,
+            context.manifest.settings,
+            config?.settings ?? {},
+            config?.extraArgs ?? '',
+          )
+        : [];
+
       const run = await context.launcher.launch({
-        backendId: body.backendId,
+        backendId,
         modelPath: body.modelPath,
         port: body.port,
+        extraArgs,
       });
 
       context.registry.add(
@@ -169,6 +215,7 @@ export function launchBackendRoute(context: AppContext): Handler {
         backendId: run.backendId,
         port: run.port,
         modelPath: run.modelPath,
+        extraArgs,
       });
     } catch (error) {
       sendJson(res, 500, { error: 'error.launch', message: (error as Error).message });

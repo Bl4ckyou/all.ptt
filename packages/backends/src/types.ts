@@ -19,11 +19,41 @@ export interface SelectionRule {
   prefer?: string[];
 }
 
+export type SettingType = 'number' | 'boolean' | 'string' | 'enum';
+export type SettingCategory = 'model' | 'performance' | 'cpu' | 'gpu' | 'sampling';
+
+export interface SettingDefinition {
+  type: SettingType;
+  category: SettingCategory;
+  default?: string | number | boolean;
+  min?: number;
+  max?: number;
+  choices?: string[];
+  descriptionKey: string;
+}
+
+export type SettingsCatalog = Record<string, SettingDefinition>;
+
+export interface SettingMappingObject {
+  flag: string;
+  invert?: boolean;
+}
+
+export type SettingMapping = string | SettingMappingObject;
+
+export interface ResolvedSetting extends SettingDefinition {
+  id: string;
+  available: boolean;
+}
+
+export type SettingValue = string | number | boolean;
+
 export interface BackendEntry {
   label: string;
   repo: string;
   defaultVariant: string;
   binaries: string[];
+  settings?: Record<string, SettingMapping>;
   selection: SelectionRule[];
 }
 
@@ -35,6 +65,7 @@ export interface ManifestDefaults {
 
 export interface Manifest {
   defaults: ManifestDefaults;
+  settings: SettingsCatalog;
   backends: Record<string, BackendEntry>;
 }
 

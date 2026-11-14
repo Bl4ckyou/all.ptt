@@ -6,12 +6,107 @@
     "cpuOnly": "ik-llama-cpp",
     "gpu": "llama-cpp"
   },
+  "settings": {
+    "context-size": {
+      "type": "number",
+      "category": "model",
+      "default": 4096,
+      "min": 0,
+      "descriptionKey": "setting-context-size-desc"
+    },
+    "gpu-layers": {
+      "type": "number",
+      "category": "gpu",
+      "default": 0,
+      "min": 0,
+      "descriptionKey": "setting-gpu-layers-desc"
+    },
+    "threads": {
+      "type": "number",
+      "category": "cpu",
+      "default": -1,
+      "min": -1,
+      "descriptionKey": "setting-threads-desc"
+    },
+    "batch-size": {
+      "type": "number",
+      "category": "performance",
+      "default": 2048,
+      "min": 1,
+      "descriptionKey": "setting-batch-size-desc"
+    },
+    "flash-attention": {
+      "type": "enum",
+      "category": "gpu",
+      "choices": ["auto", "on", "off"],
+      "default": "auto",
+      "descriptionKey": "setting-flash-attention-desc"
+    },
+    "parallel": {
+      "type": "number",
+      "category": "performance",
+      "default": 1,
+      "min": 1,
+      "descriptionKey": "setting-parallel-desc"
+    },
+    "mmap": {
+      "type": "boolean",
+      "category": "performance",
+      "default": true,
+      "descriptionKey": "setting-mmap-desc"
+    },
+    "mlock": {
+      "type": "boolean",
+      "category": "performance",
+      "default": false,
+      "descriptionKey": "setting-mlock-desc"
+    },
+    "temperature": {
+      "type": "number",
+      "category": "sampling",
+      "default": 0.8,
+      "min": 0,
+      "max": 2,
+      "descriptionKey": "setting-temperature-desc"
+    },
+    "top-p": {
+      "type": "number",
+      "category": "sampling",
+      "default": 0.95,
+      "min": 0,
+      "max": 1,
+      "descriptionKey": "setting-top-p-desc"
+    },
+    "run-time-repack": {
+      "type": "boolean",
+      "category": "performance",
+      "default": false,
+      "descriptionKey": "setting-run-time-repack-desc"
+    },
+    "smart-expert-reduction": {
+      "type": "number",
+      "category": "performance",
+      "default": 0,
+      "min": 0,
+      "descriptionKey": "setting-smart-expert-reduction-desc"
+    }
+  },
   "backends": {
     "llama-cpp": {
       "label": "llama.cpp",
       "repo": "ggml-org/llama.cpp",
       "defaultVariant": "auto",
       "binaries": ["llama-server", "llama-server.exe"],
+      "settings": {
+        "context-size": "--ctx-size",
+        "gpu-layers": "--n-gpu-layers",
+        "threads": "--threads",
+        "batch-size": "--batch-size",
+        "flash-attention": "--flash-attn",
+        "parallel": "--parallel",
+        "temperature": "--temp",
+        "top-p": "--top-p"
+      },
       "selection": [
         {
           "targets": ["linux-x64-cuda"],
@@ -42,6 +137,20 @@
       "repo": "Thireus/ik_llama.cpp",
       "defaultVariant": "cpu",
       "binaries": ["llama-server", "llama-server.exe"],
+      "settings": {
+        "context-size": "--ctx-size",
+        "gpu-layers": "--gpu-layers",
+        "threads": "--threads",
+        "batch-size": "--batch-size",
+        "flash-attention": "--flash-attn",
+        "parallel": "--parallel",
+        "mmap": { "flag": "--no-mmap", "invert": true },
+        "mlock": "--mlock",
+        "temperature": "--temp",
+        "top-p": "--top-p",
+        "run-time-repack": "--run-time-repack",
+        "smart-expert-reduction": "--smart-expert-reduction"
+      },
       "selection": [
         {
           "targets": ["linux-x64-cuda"],

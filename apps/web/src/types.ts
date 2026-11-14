@@ -58,3 +58,23 @@ export interface LocalModelInfo {
   size: number;
   source: string;
 }
+
+export type SettingValue = string | number | boolean;
+
+export interface ResolvedSettingInfo {
+  id: string;
+  type: 'number' | 'boolean' | 'string' | 'enum';
+  category: string;
+  default?: SettingValue;
+  min?: number;
+  max?: number;
+  choices?: string[];
+  descriptionKey: string;
+  available: boolean;
+}
+
+export interface ModelConfigInfo {
+  settings: Record<string, SettingValue>;
+  extraArgs: string;
+  updatedAt?: string;
+}
