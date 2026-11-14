@@ -65,6 +65,7 @@ export async function updateBackends(): Promise<void> {
 
 export async function getLocalModels(): Promise<{
   models: LocalModelInfo[];
+  drafts: LocalModelInfo[];
   auxiliary: AuxiliaryFile[];
   directories: string[];
 }> {
@@ -72,6 +73,7 @@ export async function getLocalModels(): Promise<{
   if (!response.ok) throw new Error('failed to scan models');
   return (await response.json()) as {
     models: LocalModelInfo[];
+    drafts: LocalModelInfo[];
     auxiliary: AuxiliaryFile[];
     directories: string[];
   };

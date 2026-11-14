@@ -129,9 +129,11 @@ speculative decoding, multimodal, MTP). File settings such as the draft model or
 the mmproj projector use a searchable picker with easy clearing; mmproj files are
 ranked by the model's repository and name so the relevant projectors come first.
 Speculative decoding supports file-less types (n-gram, suffix, MTP) with parameters
-that appear only for the selected type. OS-specific options (for example Linux-only
-CPU affinity) are hidden on other platforms. Settings are saved per model in
-`.ptt/model-configs.json` and applied when the model is launched.
+that appear only for the selected type. GGUF files are classified from their
+metadata (`general.architecture`, `general.type`, `general.tags`), so renamed
+MTP/assistant/mmproj files are still detected correctly. OS-specific options (for
+example Linux-only CPU affinity) are hidden on other platforms. Settings are saved
+per model in `.ptt/model-configs.json` and applied when the model is launched.
 
 The settings panel also shows a live memory estimate (RAM / VRAM) computed from the
 model's GGUF metadata (layers, embedding size, KV heads), the context size, GPU

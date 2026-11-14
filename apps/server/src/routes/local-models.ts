@@ -13,6 +13,7 @@ export function localModelsRoute(context: AppContext): Handler {
     ]);
     sendJson(res, 200, {
       models: files.models,
+      drafts: files.drafts,
       auxiliary: files.auxiliary,
       directories,
     });

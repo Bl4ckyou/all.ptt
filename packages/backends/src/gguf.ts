@@ -139,8 +139,7 @@ const WANTED = [
 
 const cache = new Map<string, { mtimeMs: number; info: GgufModelInfo }>();
 
-export async function readGgufInfo(path: string): Promise<GgufModelInfo> {
-  const fileStat = await stat(path);
+export async function readGgufInfo(path: string): Promise<GgufModelInfo> {  const fileStat = await stat(path);
   const cached = cache.get(path);
   if (cached && cached.mtimeMs === fileStat.mtimeMs) return cached.info;
 
@@ -190,4 +189,194 @@ export async function readGgufInfo(path: string): Promise<GgufModelInfo> {
   } finally {
     await handle.close();
   }
+}
+
+export type GgufCategory = 'assistant' | 'dflash' | 'dspark' | 'mtp' | 'other';
+
+export interface GgufSignature {
+  architecture: string | null;
+  generalType: string | null;
+  name: string | null;
+  basename: string | null;
+  tags: string[];
+}
+
+export interface GgufClassification {
+  kind: 'model' | 'mmproj';
+  category: GgufCategory;
+}
+
+const SIGNATURE_BYTES = 128 * 1024;
+const signatureCache = new Map<string, { mtimeMs: number; signature: GgufSignature }>();
+
+function parseSignature(buffer: Buffer): GgufSignature {
+  const signature: GgufSignature = {
+    architecture: null,
+    generalType: null,
+    name: null,
+    basename: null,
+    tags: [],
+  };
+
+  let position = 0;
+  const ensure = (size: number): void => {
+    if (position + size > buffer.length) throw new RangeError('eof');
+  };
+  const u32 = (): number => {
+    ensure(4);
+    const value = buffer.readUInt32LE(position);
+    position += 4;
+    return value;
+  };
+  const u64 = (): number => {
+    ensure(8);
+    const value = Number(buffer.readBigUInt64LE(position));
+    position += 8;
+    return value;
+  };
+  const text = (): string => {
+    const length = u64();
+    ensure(length);
+    const value = buffer.toString('utf8', position, position + length);
+    position += length;
+    return value;
+  };
+  const skip = (size: number): void => {
+    ensure(size);
+    position += size;
+  };
+
+  const skipArrayElements = (elementType: number, count: number): void => {
+    if (elementType === 8) {
+      for (let index = 0; index < count; index++) skip(u64());
+      return;
+    }
+    const size = FIXED_SIZES[elementType];
+    if (!size) throw new Error(`unsupported gguf array type: ${elementType}`);
+    skip(size * count);
+  };
+
+  const skipValue = (type: number): void => {
+    if (type === 8) {
+      skip(u64());
+      return;
+    }
+    if (type === 9) {
+      const elementType = u32();
+      const count = u64();
+      skipArrayElements(elementType, count);
+      return;
+    }
+    const size = FIXED_SIZES[type];
+    if (!size) throw new Error(`unsupported gguf value type: ${type}`);
+    skip(size);
+  };
+
+  const readStringArray = (): string[] | null => {
+    const elementType = u32();
+    const count = u64();
+    if (elementType !== 8) {
+      skipArrayElements(elementType, count);
+      return null;
+    }
+    const items: string[] = [];
+    for (let index = 0; index < count; index++) {
+      const value = text();
+      if (index < 16) items.push(value);
+    }
+    return items;
+  };
+
+  try {
+    if (buffer.length < 4 || buffer.toString('ascii', 0, 4) !== 'GGUF') return signature;
+    position = 4;
+    u32();
+    u64();
+    const kvCount = u64();
+
+    for (let index = 0; index < kvCount; index++) {
+      const key = text();
+      const type = u32();
+
+      if (key === 'general.architecture' && type === 8) signature.architecture = text();
+      else if (key === 'general.type' && type === 8) signature.generalType = text();
+      else if (key === 'general.name' && type === 8) signature.name = text();
+      else if (key === 'general.basename' && type === 8) signature.basename = text();
+      else if (key === 'general.tags' && type === 9) signature.tags = readStringArray() ?? [];
+      else {
+        skipValue(type);
+        if (
+          !key.startsWith('general.') &&
+          (signature.architecture || signature.generalType || signature.name)
+        ) {
+          break;
+        }
+      }
+    }
+  } catch {
+    // truncated buffer: keep whatever was parsed
+  }
+
+  return signature;
+}
+
+export async function readGgufSignature(path: string): Promise<GgufSignature> {
+  const fileStat = await stat(path);
+  const cached = signatureCache.get(path);
+  if (cached && cached.mtimeMs === fileStat.mtimeMs) return cached.signature;
+
+  const size = Math.min(SIGNATURE_BYTES, fileStat.size);
+  const buffer = Buffer.alloc(size);
+  const handle = await open(path, 'r');
+  try {
+    await handle.read(buffer, 0, size, 0);
+  } finally {
+    await handle.close();
+  }
+
+  const signature = parseSignature(buffer);
+  signatureCache.set(path, { mtimeMs: fileStat.mtimeMs, signature });
+  return signature;
+}
+
+function wordMatch(text: string, word: string): boolean {
+  return new RegExp(`(^|[-_. ])${word}([-_. ]|$)`, 'i').test(text);
+}
+
+// Classify a GGUF file from its metadata first, then fall back to its name.
+export function classifyGguf(
+  fileName: string,
+  signature: GgufSignature | null,
+): GgufClassification {
+  const lower = fileName.toLowerCase();
+  const architecture = (signature?.architecture ?? '').toLowerCase();
+  const generalType = (signature?.generalType ?? '').toLowerCase();
+
+  const haystack = [
+    architecture,
+    generalType,
+    signature?.name ?? '',
+    signature?.basename ?? '',
+    ...(signature?.tags ?? []),
+    lower,
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  const isMmproj =
+    generalType === 'mmproj' ||
+    architecture === 'clip' ||
+    architecture.includes('clip') ||
+    wordMatch(lower, 'mmproj');
+
+  if (isMmproj) return { kind: 'mmproj', category: 'other' };
+
+  let category: GgufCategory = 'other';
+  if (wordMatch(haystack, 'dspark')) category = 'dspark';
+  else if (wordMatch(haystack, 'dflash')) category = 'dflash';
+  else if (wordMatch(haystack, 'mtp')) category = 'mtp';
+  else if (wordMatch(haystack, 'assistant') || wordMatch(haystack, 'draft')) category = 'assistant';
+  else if (architecture.endsWith('-assistant')) category = 'assistant';
+
+  return { kind: 'model', category };
 }

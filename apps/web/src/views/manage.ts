@@ -201,13 +201,22 @@ export function createManage(actions: Actions): Manage {
     setting: ResolvedSettingInfo,
     current: SettingValue | undefined,
   ): HTMLElement {
-    const candidates: LocalModelInfo[] = (
+    const pool: LocalModelInfo[] =
       setting.fileKind === 'mmproj'
         ? state.auxiliary.filter((file) => file.kind === 'mmproj')
         : setting.fileKind === 'mtp'
-          ? state.auxiliary.filter((file) => file.kind === 'mtp')
-          : [...state.localModels, ...state.auxiliary.filter((file) => file.kind === 'mtp')]
-    ).filter((file) => file.path !== configModel?.path);
+          ? state.drafts.filter((file) => (file.category ?? 'other') === 'mtp')
+          : [...state.drafts, ...state.localModels];
+
+    const seenPaths = new Set<string>();
+    const candidates: LocalModelInfo[] = [];
+    for (const file of pool) {
+      if (file.path === configModel?.path || seenPaths.has(file.path)) continue;
+      seenPaths.add(file.path);
+      candidates.push(file);
+    }
+
+    const categoryOf = (file: LocalModelInfo): string => file.category ?? draftCategory(file.name);
 
     const CATEGORY_RANK: Record<string, number> = {
       assistant: 0,
@@ -232,8 +241,8 @@ export function createManage(actions: Actions): Manage {
             .sort(
               (a, b) =>
                 b.score - a.score ||
-                (CATEGORY_RANK[draftCategory(a.file.name)] ?? 1) -
-                  (CATEGORY_RANK[draftCategory(b.file.name)] ?? 1) ||
+                (CATEGORY_RANK[categoryOf(a.file)] ?? 1) -
+                  (CATEGORY_RANK[categoryOf(b.file)] ?? 1) ||
                 a.file.name.localeCompare(b.file.name),
             )
             .map((entry) => entry.file);
@@ -241,7 +250,7 @@ export function createManage(actions: Actions): Manage {
     const categories =
       setting.fileKind === 'model'
         ? (['assistant', 'dflash', 'dspark', 'mtp', 'other'] as const).filter((category) =>
-            base.some((file) => draftCategory(file.name) === category),
+            base.some((file) => categoryOf(file) === category),
           )
         : [];
     let activeCategory: string = 'all';
@@ -297,7 +306,7 @@ export function createManage(actions: Actions): Manage {
       let pool = base;
 
       if (activeCategory !== 'all') {
-        pool = pool.filter((file) => draftCategory(file.name) === activeCategory);
+        pool = pool.filter((file) => categoryOf(file) === activeCategory);
       }
       if (term.length > 0) {
         pool = pool.filter(

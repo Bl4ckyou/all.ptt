@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { readGgufInfo } from './gguf.js';
+import { classifyGguf, readGgufInfo, readGgufSignature } from './gguf.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -34,16 +34,21 @@ function entry(key: string, type: number, value: Buffer): Buffer {
 }
 
 function buildGguf(): Buffer {
-  const stringArray = Buffer.concat([
+  const tokens = Buffer.concat([
     u32(8),
     u64(2),
     ggufString('hello'),
     ggufString('world'),
   ]);
+  const tags = Buffer.concat([u32(8), u64(2), ggufString('chat'), ggufString('test')]);
 
   const entries = [
-    entry('tokenizer.ggml.tokens', 9, stringArray),
     entry('general.architecture', 8, ggufString('llama')),
+    entry('general.type', 8, ggufString('model')),
+    entry('general.name', 8, ggufString('Test Model')),
+    entry('general.basename', 8, ggufString('test-baseline')),
+    entry('general.tags', 9, tags),
+    entry('tokenizer.ggml.tokens', 9, tokens),
     entry('llama.block_count', 4, u32(32)),
     entry('llama.embedding_length', 4, u32(4096)),
     entry('llama.attention.head_count', 4, u32(32)),
@@ -87,5 +92,82 @@ describe('readGgufInfo', () => {
     const file = join(directory, 'model.gguf');
     await writeFile(file, 'not a model');
     await expect(readGgufInfo(file)).rejects.toThrow();
+  });
+});
+
+describe('readGgufSignature', () => {
+  it('reads general metadata before the tokenizer block', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ptt-gguf-'));
+    temporaryDirectories.push(directory);
+
+    const file = join(directory, 'model.gguf');
+    await writeFile(file, buildGguf());
+
+    const signature = await readGgufSignature(file);
+    expect(signature.architecture).toBe('llama');
+    expect(signature.generalType).toBe('model');
+    expect(signature.name).toBe('Test Model');
+    expect(signature.basename).toBe('test-baseline');
+    expect(signature.tags).toEqual(['chat', 'test']);
+  });
+});
+
+describe('classifyGguf', () => {
+  it('detects mmproj from metadata even with an unrelated file name', () => {
+    expect(
+      classifyGguf('whatever.gguf', {
+        architecture: 'clip',
+        generalType: 'mmproj',
+        name: null,
+        basename: null,
+        tags: [],
+      }),
+    ).toEqual({ kind: 'mmproj', category: 'other' });
+  });
+
+  it('classifies assistant metadata when the file was renamed', () => {
+    expect(
+      classifyGguf('renamed.gguf', {
+        architecture: 'gemma4-assistant',
+        generalType: 'model',
+        name: 'E2B Assistant',
+        basename: null,
+        tags: [],
+      }),
+    ).toEqual({ kind: 'model', category: 'assistant' });
+  });
+
+  it('prefers the mtp category when the metadata or name says mtp', () => {
+    expect(
+      classifyGguf('mtp-gemma.gguf', {
+        architecture: 'gemma4-assistant',
+        generalType: 'model',
+        name: 'E2B Assistant',
+        basename: null,
+        tags: [],
+      }),
+    ).toEqual({ kind: 'model', category: 'mtp' });
+  });
+
+  it('recognizes dflash and dspark from metadata', () => {
+    const base = { generalType: 'model', name: null, basename: null, tags: [] };
+    expect(classifyGguf('a.gguf', { ...base, architecture: 'gemma4-dflash' }).category).toBe(
+      'dflash',
+    );
+    expect(classifyGguf('b.gguf', { ...base, architecture: 'gemma4-dspark' }).category).toBe(
+      'dspark',
+    );
+  });
+
+  it('keeps regular models as other', () => {
+    expect(
+      classifyGguf('gemma.gguf', {
+        architecture: 'gemma4',
+        generalType: 'model',
+        name: 'Gemma',
+        basename: null,
+        tags: [],
+      }),
+    ).toEqual({ kind: 'model', category: 'other' });
   });
 });

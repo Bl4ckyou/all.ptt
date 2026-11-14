@@ -57,6 +57,7 @@ export interface LocalModelInfo {
   name: string;
   size: number;
   source: string;
+  category?: 'assistant' | 'dflash' | 'dspark' | 'mtp' | 'other';
 }
 
 export interface AuxiliaryFile extends LocalModelInfo {

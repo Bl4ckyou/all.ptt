@@ -1,6 +1,7 @@
 import { realpath, readdir, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { classifyGguf, readGgufSignature, type GgufCategory } from './gguf.js';
 
 export type GgufKind = 'model' | 'mmproj' | 'mtp' | 'other';
 
@@ -9,14 +10,17 @@ export interface LocalModel {
   name: string;
   size: number;
   source: string;
+  category?: GgufCategory;
 }
 
 export interface AuxiliaryFile extends LocalModel {
   kind: 'mmproj' | 'mtp';
 }
 
+type ScannedKind = 'model' | 'mmproj' | 'draft';
+
 interface ScannedFile extends LocalModel {
-  kind: GgufKind;
+  kind: ScannedKind;
 }
 
 export function ggufKind(fileName: string): GgufKind {
@@ -69,8 +73,10 @@ async function collect(
       continue;
     }
 
-    const kind = ggufKind(entry.name);
-    if (kind === 'other') continue;
+    if (!entry.name.toLowerCase().endsWith('.gguf')) continue;
+
+    const split = /-(\d{5})-of-(\d{5})\.gguf$/i.exec(entry.name);
+    if (split && split[1] !== '00001') continue;
 
     try {
       const real = await realpath(full);
@@ -78,12 +84,28 @@ async function collect(
 
       const info = await stat(real);
       seen.add(real);
+
+      let classification;
+      try {
+        classification = classifyGguf(entry.name, await readGgufSignature(full));
+      } catch {
+        classification = classifyGguf(entry.name, null);
+      }
+
+      const kind: ScannedKind =
+        classification.kind === 'mmproj'
+          ? 'mmproj'
+          : classification.category !== 'other'
+            ? 'draft'
+            : 'model';
+
       files.push({
         path: full,
         name: entry.name.replace(/\.gguf$/i, ''),
         size: info.size,
         source,
         kind,
+        ...(kind === 'draft' ? { category: classification.category } : {}),
       });
     } catch {
       // broken symlink
@@ -93,6 +115,7 @@ async function collect(
 
 export interface LocalFiles {
   models: LocalModel[];
+  drafts: LocalModel[];
   auxiliary: AuxiliaryFile[];
 }
 
@@ -113,14 +136,17 @@ export async function scanLocalFiles(extraDirs: string[] = []): Promise<LocalFil
     .map(({ kind: _kind, ...rest }) => rest)
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const auxiliary = files
-    .filter((file): file is ScannedFile & { kind: 'mmproj' | 'mtp' } =>
-      file.kind === 'mmproj' || file.kind === 'mtp',
-    )
-    .map(({ kind, ...rest }) => ({ ...rest, kind }))
+  const drafts = files
+    .filter((file) => file.kind === 'draft')
+    .map(({ kind: _kind, ...rest }) => rest)
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  return { models, auxiliary };
+  const auxiliary = files
+    .filter((file) => file.kind === 'mmproj')
+    .map(({ kind: _kind, category: _category, ...rest }) => ({ ...rest, kind: 'mmproj' as const }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { models, drafts, auxiliary };
 }
 
 export async function scanLocalModels(extraDirs: string[] = []): Promise<LocalModel[]> {

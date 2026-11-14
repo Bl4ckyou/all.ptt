@@ -54,7 +54,8 @@ export {
 export type { AuxiliaryFile, GgufKind, LocalFiles, LocalModel } from './models.js';
 export { listModelDirectories } from './models.js';
 export { revealPath } from './reveal.js';
-export { readGgufInfo } from './gguf.js';
+export { readGgufInfo, readGgufSignature, classifyGguf } from './gguf.js';
+export type { GgufCategory, GgufClassification, GgufSignature } from './gguf.js';
 export {
   buildSettingArgs,
   discoverFlags,

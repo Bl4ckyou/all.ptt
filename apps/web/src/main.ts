@@ -124,6 +124,7 @@ async function scanModels(): Promise<void> {
   try {
     const scan = await getLocalModels();
     state.localModels = scan.models;
+    state.drafts = scan.drafts;
     state.auxiliary = scan.auxiliary;
     state.modelDirs = scan.directories;
   } catch {
