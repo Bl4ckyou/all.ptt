@@ -44,8 +44,14 @@ export {
   readInstalledStates,
   resolveInstalledBinary,
 } from './state.js';
-export { scanLocalModels } from './models.js';
-export type { LocalModel } from './models.js';
+export {
+  ggufKind,
+  isUsableModelFile,
+  scanAuxiliaryFiles,
+  scanLocalFiles,
+  scanLocalModels,
+} from './models.js';
+export type { AuxiliaryFile, GgufKind, LocalFiles, LocalModel } from './models.js';
 export { listModelDirectories } from './models.js';
 export { revealPath } from './reveal.js';
 export { readGgufInfo } from './gguf.js';

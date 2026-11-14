@@ -665,6 +665,35 @@ select.control {
   gap: 12px;
 }
 
+.setting-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.setting-group-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+.path-control {
+  width: min(320px, 100%);
+}
+
+.path-control .control {
+  width: 100%;
+}
+
 .advanced {
   margin-top: 14px;
   padding-top: 12px;

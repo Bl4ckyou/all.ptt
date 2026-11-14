@@ -19,8 +19,17 @@ export interface SelectionRule {
   prefer?: string[];
 }
 
-export type SettingType = 'number' | 'boolean' | 'string' | 'enum';
-export type SettingCategory = 'model' | 'performance' | 'cpu' | 'gpu' | 'sampling';
+export type SettingType = 'number' | 'boolean' | 'string' | 'enum' | 'path';
+export type SettingCategory =
+  | 'model'
+  | 'performance'
+  | 'cpu'
+  | 'gpu'
+  | 'sampling'
+  | 'speculative'
+  | 'multimodal'
+  | 'mtp';
+export type FileKind = 'model' | 'mmproj' | 'mtp';
 
 export interface SettingDefinition {
   type: SettingType;
@@ -32,6 +41,7 @@ export interface SettingDefinition {
   descriptionKey: string;
   advanced?: boolean;
   platforms?: string[];
+  fileKind?: FileKind;
 }
 
 export type SettingsCatalog = Record<string, SettingDefinition>;

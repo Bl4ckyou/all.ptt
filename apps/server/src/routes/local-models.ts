@@ -1,17 +1,21 @@
 import { dirname, isAbsolute, sep } from 'node:path';
 import { stat } from 'node:fs/promises';
-import { listModelDirectories, readGgufInfo, revealPath, scanLocalModels } from '@ptt/backends';
+import { listModelDirectories, readGgufInfo, revealPath, scanLocalFiles } from '@ptt/backends';
 import type { AppContext } from '../context.js';
 import { readJson, sendError, sendJson } from '../http.js';
 import type { Handler } from '../router.js';
 
 export function localModelsRoute(context: AppContext): Handler {
   return async ({ res }) => {
-    const [models, directories] = await Promise.all([
-      scanLocalModels(context.modelDirs),
+    const [files, directories] = await Promise.all([
+      scanLocalFiles(context.modelDirs),
       listModelDirectories(context.modelDirs),
     ]);
-    sendJson(res, 200, { models, directories });
+    sendJson(res, 200, {
+      models: files.models,
+      auxiliary: files.auxiliary,
+      directories,
+    });
   };
 }
 

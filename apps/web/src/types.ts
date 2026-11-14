@@ -59,11 +59,15 @@ export interface LocalModelInfo {
   source: string;
 }
 
+export interface AuxiliaryFile extends LocalModelInfo {
+  kind: 'mmproj' | 'mtp';
+}
+
 export type SettingValue = string | number | boolean;
 
 export interface ResolvedSettingInfo {
   id: string;
-  type: 'number' | 'boolean' | 'string' | 'enum';
+  type: 'number' | 'boolean' | 'string' | 'enum' | 'path';
   category: string;
   default?: SettingValue;
   min?: number;
@@ -72,6 +76,7 @@ export interface ResolvedSettingInfo {
   descriptionKey: string;
   advanced?: boolean;
   platforms?: string[];
+  fileKind?: 'model' | 'mmproj' | 'mtp';
   available: boolean;
 }
 

@@ -1,6 +1,9 @@
 import { realpath, readdir, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+
+export type GgufKind = 'model' | 'mmproj' | 'mtp' | 'other';
+
 export interface LocalModel {
   path: string;
   name: string;
@@ -8,18 +11,29 @@ export interface LocalModel {
   source: string;
 }
 
-// Skip projectors, MTP heads and non-first split parts.
-export function isUsableModelFile(fileName: string): boolean {
-  if (!fileName.toLowerCase().endsWith('.gguf')) return false;
+export interface AuxiliaryFile extends LocalModel {
+  kind: 'mmproj' | 'mtp';
+}
+
+interface ScannedFile extends LocalModel {
+  kind: GgufKind;
+}
+
+export function ggufKind(fileName: string): GgufKind {
+  if (!fileName.toLowerCase().endsWith('.gguf')) return 'other';
 
   const base = fileName.replace(/\.gguf$/i, '');
-  if (/(^|[-_.])mmproj([-_.]|$)/i.test(base)) return false;
-  if (/(^|[-_.])mtp([-_.]|$)/i.test(base)) return false;
+  if (/(^|[-_.])mmproj([-_.]|$)/i.test(base)) return 'mmproj';
+  if (/(^|[-_.])mtp([-_.]|$)/i.test(base)) return 'mtp';
 
   const split = /-(\d{5})-of-(\d{5})$/i.exec(base);
-  if (split && split[1] !== '00001') return false;
+  if (split && split[1] !== '00001') return 'other';
 
-  return true;
+  return 'model';
+}
+
+export function isUsableModelFile(fileName: string): boolean {
+  return ggufKind(fileName) === 'model';
 }
 
 function huggingFaceCacheDirs(): string[] {
@@ -37,7 +51,7 @@ function huggingFaceCacheDirs(): string[] {
 async function collect(
   directory: string,
   source: string,
-  models: LocalModel[],
+  files: ScannedFile[],
   seen: Set<string>,
 ): Promise<void> {
   let entries;
@@ -51,11 +65,12 @@ async function collect(
     const full = join(directory, entry.name);
 
     if (entry.isDirectory()) {
-      await collect(full, source, models, seen);
+      await collect(full, source, files, seen);
       continue;
     }
-    if (!entry.name.toLowerCase().endsWith('.gguf')) continue;
-    if (!isUsableModelFile(entry.name)) continue;
+
+    const kind = ggufKind(entry.name);
+    if (kind === 'other') continue;
 
     try {
       const real = await realpath(full);
@@ -63,11 +78,12 @@ async function collect(
 
       const info = await stat(real);
       seen.add(real);
-      models.push({
+      files.push({
         path: full,
         name: entry.name.replace(/\.gguf$/i, ''),
         size: info.size,
         source,
+        kind,
       });
     } catch {
       // broken symlink
@@ -75,19 +91,44 @@ async function collect(
   }
 }
 
-// Find GGUF files in the Hugging Face cache and any extra directories.
-export async function scanLocalModels(extraDirs: string[] = []): Promise<LocalModel[]> {
-  const models: LocalModel[] = [];
+export interface LocalFiles {
+  models: LocalModel[];
+  auxiliary: AuxiliaryFile[];
+}
+
+// Scan the Hugging Face cache and extra directories once, classifying files.
+export async function scanLocalFiles(extraDirs: string[] = []): Promise<LocalFiles> {
+  const files: ScannedFile[] = [];
   const seen = new Set<string>();
 
   for (const directory of huggingFaceCacheDirs()) {
-    await collect(directory, 'huggingface', models, seen);
+    await collect(directory, 'huggingface', files, seen);
   }
   for (const directory of extraDirs) {
-    await collect(directory, 'local', models, seen);
+    await collect(directory, 'local', files, seen);
   }
 
-  return models.sort((a, b) => a.name.localeCompare(b.name));
+  const models = files
+    .filter((file) => file.kind === 'model')
+    .map(({ kind: _kind, ...rest }) => rest)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const auxiliary = files
+    .filter((file): file is ScannedFile & { kind: 'mmproj' | 'mtp' } =>
+      file.kind === 'mmproj' || file.kind === 'mtp',
+    )
+    .map(({ kind, ...rest }) => ({ ...rest, kind }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { models, auxiliary };
+}
+
+export async function scanLocalModels(extraDirs: string[] = []): Promise<LocalModel[]> {
+  return (await scanLocalFiles(extraDirs)).models;
+}
+
+export async function scanAuxiliaryFiles(extraDirs: string[] = []): Promise<AuxiliaryFile[]> {
+  return (await scanLocalFiles(extraDirs)).auxiliary;
 }
 
 // Existing directories that may contain models, for "open folder" actions.

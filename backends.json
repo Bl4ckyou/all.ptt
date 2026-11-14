@@ -35,7 +35,20 @@
     "repeat-penalty": { "type": "number", "category": "sampling", "default": 1.1, "min": 0, "advanced": true, "descriptionKey": "setting-repeat-penalty-desc" },
     "seed": { "type": "number", "category": "sampling", "default": -1, "min": -1, "advanced": true, "descriptionKey": "setting-seed-desc" },
     "repack": { "type": "boolean", "category": "performance", "default": true, "advanced": true, "descriptionKey": "setting-repack-desc" },
-    "merge-qkv": { "type": "boolean", "category": "performance", "default": false, "advanced": true, "descriptionKey": "setting-merge-qkv-desc" }
+    "merge-qkv": { "type": "boolean", "category": "performance", "default": false, "advanced": true, "descriptionKey": "setting-merge-qkv-desc" },
+    "draft-model": { "type": "path", "category": "speculative", "fileKind": "model", "descriptionKey": "setting-draft-model-desc" },
+    "draft-gpu-layers": { "type": "number", "category": "speculative", "default": 0, "min": 0, "descriptionKey": "setting-draft-gpu-layers-desc" },
+    "draft-context-size": { "type": "number", "category": "speculative", "default": 0, "min": 0, "advanced": true, "descriptionKey": "setting-draft-context-size-desc" },
+    "draft-max": { "type": "number", "category": "speculative", "default": 3, "min": 0, "advanced": true, "descriptionKey": "setting-draft-max-desc" },
+    "draft-cache-type-k": { "type": "enum", "category": "speculative", "choices": ["f32", "f16", "bf16", "f8_e4m3", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1"], "default": "f16", "advanced": true, "descriptionKey": "setting-draft-cache-type-k-desc" },
+    "draft-cache-type-v": { "type": "enum", "category": "speculative", "choices": ["f32", "f16", "bf16", "f8_e4m3", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1"], "default": "f16", "advanced": true, "descriptionKey": "setting-draft-cache-type-v-desc" },
+    "draft-threads": { "type": "number", "category": "speculative", "default": -1, "min": -1, "advanced": true, "descriptionKey": "setting-draft-threads-desc" },
+    "mmproj": { "type": "path", "category": "multimodal", "fileKind": "mmproj", "descriptionKey": "setting-mmproj-desc" },
+    "mmproj-offload": { "type": "boolean", "category": "multimodal", "default": true, "advanced": true, "descriptionKey": "setting-mmproj-offload-desc" },
+    "image-min-tokens": { "type": "number", "category": "multimodal", "min": 0, "advanced": true, "descriptionKey": "setting-image-min-tokens-desc" },
+    "image-max-tokens": { "type": "number", "category": "multimodal", "min": 0, "advanced": true, "descriptionKey": "setting-image-max-tokens-desc" },
+    "mtp-requantize": { "type": "enum", "category": "mtp", "choices": ["f32", "f16", "bf16", "f8_e4m3", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1"], "advanced": true, "descriptionKey": "setting-mtp-requantize-desc" },
+    "spec-type": { "type": "string", "category": "speculative", "advanced": true, "descriptionKey": "setting-spec-type-desc" }
   },
   "backends": {
     "llama-cpp": {
@@ -68,7 +81,18 @@
         "min-p": "--min-p",
         "repeat-penalty": "--repeat-penalty",
         "seed": "--seed",
-        "repack": { "flag": "--no-repack", "invert": true }
+        "repack": { "flag": "--no-repack", "invert": true },
+        "draft-model": "--model-draft",
+        "draft-gpu-layers": "--gpu-layers-draft",
+        "draft-max": "--spec-draft-n-max",
+        "draft-cache-type-k": "--cache-type-k-draft",
+        "draft-cache-type-v": "--cache-type-v-draft",
+        "draft-threads": "--threads-draft",
+        "mmproj": "--mmproj",
+        "mmproj-offload": { "flag": "--no-mmproj-offload", "invert": true },
+        "image-min-tokens": "--image-min-tokens",
+        "image-max-tokens": "--image-max-tokens",
+        "spec-type": "--spec-type"
       },
       "selection": [
         {
@@ -128,7 +152,19 @@
         "repeat-penalty": "--repeat-penalty",
         "seed": "--seed",
         "repack": { "flag": "--run-time-repack", "default": false },
-        "merge-qkv": "--merge-qkv"
+        "merge-qkv": "--merge-qkv",
+        "draft-model": "--model-draft",
+        "draft-gpu-layers": "--gpu-layers-draft",
+        "draft-context-size": "--ctx-size-draft",
+        "draft-cache-type-k": "--cache-type-k-draft",
+        "draft-cache-type-v": "--cache-type-v-draft",
+        "draft-threads": "--threads-draft",
+        "mmproj": "--mmproj",
+        "mmproj-offload": { "flag": "--no-mmproj-offload", "invert": true },
+        "image-min-tokens": "--image-min-tokens",
+        "image-max-tokens": "--image-max-tokens",
+        "mtp-requantize": "--mtp-requantize-output-tensor",
+        "spec-type": "--spec-type"
       },
       "selection": [
         {

@@ -181,6 +181,39 @@ export function createManage(actions: Actions): Manage {
   function settingControl(setting: ResolvedSettingInfo): HTMLElement {
     const current = configValues[setting.id] ?? setting.default;
 
+    if (setting.type === 'path') {
+      const listId = `path-options-${setting.id}`;
+      const candidates =
+        setting.fileKind === 'mmproj'
+          ? state.auxiliary.filter((file) => file.kind === 'mmproj')
+          : setting.fileKind === 'mtp'
+            ? state.auxiliary.filter((file) => file.kind === 'mtp')
+            : state.localModels;
+
+      const input = el('input', {
+        class: 'control',
+        value: current === undefined ? '' : String(current),
+        attrs: { type: 'text', list: listId, placeholder: t('manage-path-placeholder') },
+        on: {
+          input: (event) => {
+            const raw = (event.target as HTMLInputElement).value;
+            if (raw === '') {
+              delete configValues[setting.id];
+            } else {
+              configValues[setting.id] = raw;
+            }
+          },
+        },
+      });
+
+      const options = candidates.map((file) => el('option', { value: file.path, text: file.name }));
+
+      return el('div', { class: 'path-control' }, [
+        input,
+        el('datalist', { attrs: { id: listId } }, options),
+      ]);
+    }
+
     if (setting.type === 'boolean') {
       const checkbox = el('input', {
         class: 'toggle',
@@ -263,6 +296,44 @@ export function createManage(actions: Actions): Manage {
     return values;
   }
 
+  const CATEGORY_ORDER = [
+    'model',
+    'performance',
+    'cpu',
+    'gpu',
+    'sampling',
+    'speculative',
+    'multimodal',
+    'mtp',
+  ];
+
+  function categoryGroups(
+    settings: ResolvedSettingInfo[],
+  ): [string, ResolvedSettingInfo[]][] {
+    const groups = new Map<string, ResolvedSettingInfo[]>();
+    for (const setting of settings) {
+      const list = groups.get(setting.category) ?? [];
+      list.push(setting);
+      groups.set(setting.category, list);
+    }
+    return [...groups.entries()].sort(
+      (a, b) => CATEGORY_ORDER.indexOf(a[0]) - CATEGORY_ORDER.indexOf(b[0]),
+    );
+  }
+
+  function renderGroup(settings: ResolvedSettingInfo[]): HTMLElement {
+    const wrapper = el('div', { class: 'setting-groups' });
+    for (const [category, items] of categoryGroups(settings)) {
+      wrapper.append(
+        el('section', { class: 'setting-group' }, [
+          el('h4', { class: 'setting-group-title', text: t(`category-${category}`) }),
+          el('div', { class: 'setting-list' }, items.map(settingRow)),
+        ]),
+      );
+    }
+    return wrapper;
+  }
+
   function renderSettings(): void {
     if (!settingsHost) return;
     settingsHost.replaceChildren();
@@ -275,9 +346,7 @@ export function createManage(actions: Actions): Manage {
       const basic = configSettings.filter((setting) => !setting.advanced);
       const advanced = configSettings.filter((setting) => setting.advanced);
 
-      if (basic.length > 0) {
-        settingsHost.append(el('div', { class: 'setting-list' }, basic.map(settingRow)));
-      }
+      if (basic.length > 0) settingsHost.append(renderGroup(basic));
       if (advanced.length > 0) {
         settingsHost.append(
           el('details', { class: 'advanced' }, [
@@ -285,7 +354,7 @@ export function createManage(actions: Actions): Manage {
               icon('manage', 'icon small'),
               t('manage-advanced'),
             ]),
-            el('div', { class: 'setting-list advanced-list' }, advanced.map(settingRow)),
+            renderGroup(advanced),
           ]),
         );
       }

@@ -98,4 +98,32 @@ describe('buildSettingArgs', () => {
       buildSettingArgs(manifest.backends['llama-cpp'], manifest.settings, { 'merge-qkv': true }),
     ).toEqual([]);
   });
+
+  it('maps draft and multimodal settings', () => {
+    expect(
+      buildSettingArgs(manifest.backends['llama-cpp'], manifest.settings, {
+        'draft-model': '/models/draft.gguf',
+        'draft-gpu-layers': 10,
+        mmproj: '/models/mmproj.gguf',
+        'mmproj-offload': false,
+      }),
+    ).toEqual([
+      '--model-draft',
+      '/models/draft.gguf',
+      '--gpu-layers-draft',
+      '10',
+      '--mmproj',
+      '/models/mmproj.gguf',
+      '--no-mmproj-offload',
+    ]);
+  });
+
+  it('maps ik-specific mtp and spec-type settings', () => {
+    expect(
+      buildSettingArgs(manifest.backends['ik-llama-cpp'], manifest.settings, {
+        'mtp-requantize': 'q8_0',
+        'spec-type': 'mtp:n_max=1',
+      }),
+    ).toEqual(['--mtp-requantize-output-tensor', 'q8_0', '--spec-type', 'mtp:n_max=1']);
+  });
 });

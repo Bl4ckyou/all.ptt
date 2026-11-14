@@ -1,5 +1,6 @@
 import type { ChatMessage, ModelInfo } from '@ptt/core';
 import type {
+  AuxiliaryFile,
   BackendInfo,
   HardwareInfo,
   LocalModelInfo,
@@ -24,6 +25,7 @@ export interface State {
   recommended: string | null;
   backends: BackendInfo[];
   localModels: LocalModelInfo[];
+  auxiliary: AuxiliaryFile[];
   modelDirs: string[];
   running: RunningBackendInfo[];
 }
@@ -45,6 +47,7 @@ export const state: State = {
   recommended: null,
   backends: [],
   localModels: [],
+  auxiliary: [],
   modelDirs: [],
   running: [],
 };

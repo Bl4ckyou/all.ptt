@@ -1,6 +1,7 @@
 import type { ChatEvent, ChatMessage, ModelInfo } from '@ptt/core';
 import type { GgufModelInfo } from '@ptt/core';
 import type {
+  AuxiliaryFile,
   BackendsInfo,
   LocalModelInfo,
   ModelConfigInfo,
@@ -62,10 +63,18 @@ export async function updateBackends(): Promise<void> {
   if (!response.ok) throw new Error('backend update failed');
 }
 
-export async function getLocalModels(): Promise<{ models: LocalModelInfo[]; directories: string[] }> {
+export async function getLocalModels(): Promise<{
+  models: LocalModelInfo[];
+  auxiliary: AuxiliaryFile[];
+  directories: string[];
+}> {
   const response = await fetch('/api/models/local');
   if (!response.ok) throw new Error('failed to scan models');
-  return (await response.json()) as { models: LocalModelInfo[]; directories: string[] };
+  return (await response.json()) as {
+    models: LocalModelInfo[];
+    auxiliary: AuxiliaryFile[];
+    directories: string[];
+  };
 }
 
 export async function revealPath(target: string): Promise<void> {
