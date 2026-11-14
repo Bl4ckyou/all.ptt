@@ -1,6 +1,7 @@
 import type { Actions } from '../actions.js';
 import { el, option } from '../dom.js';
 import { t } from '../i18n.js';
+import { icon } from '../icons.js';
 import { state } from '../state.js';
 import type { BackendInfo } from '../types.js';
 
@@ -17,6 +18,14 @@ function formatSize(bytes: number): string {
 
 function variantLabel(variant: string): string {
   return variant === 'auto' ? t('backend-auto') : t(`variant-${variant}`);
+}
+
+function button(iconName: Parameters<typeof icon>[0], label: string, onClick: () => void, danger = false): HTMLButtonElement {
+  return el(
+    'button',
+    { class: `button${danger ? ' danger' : ''}`, on: { click: onClick } },
+    [icon(iconName), label],
+  );
 }
 
 export function createManage(actions: Actions): Manage {
@@ -39,7 +48,7 @@ export function createManage(actions: Actions): Manage {
       parts.push(hw.gpu.vendor);
     }
     return el('div', { class: 'manage-card' }, [
-      el('h3', { class: 'manage-title', text: t('manage-hardware') }),
+      el('h3', { class: 'manage-title' }, [icon('cpu', 'icon small'), t('manage-hardware')]),
       el('p', { class: 'manage-line', text: parts.join(' · ') || '—' }),
       el('p', {
         class: 'manage-line muted',
@@ -65,11 +74,11 @@ export function createManage(actions: Actions): Manage {
       backend.variants.map((variant) => option(variant, variantLabel(variant), variant === choice)),
     );
 
-    const button = el('button', {
-      class: 'button',
-      text: installed ? t('manage-update') : t('manage-install'),
-      on: { click: () => void actions.installBackend(backend.id, choice) },
-    });
+    const action = button(
+      installed ? 'refresh' : 'download',
+      installed ? t('manage-update') : t('manage-install'),
+      () => void actions.installBackend(backend.id, choice),
+    );
 
     const status = installed
       ? el('p', {
@@ -80,10 +89,10 @@ export function createManage(actions: Actions): Manage {
 
     return el('div', { class: 'backend-card' }, [
       el('div', { class: 'manage-head' }, [
-        el('span', { class: 'manage-name', text: backend.label }),
+        el('span', { class: 'manage-name' }, [icon('server', 'icon small'), backend.label]),
         el('span', { class: 'manage-line muted', text: backend.repo }),
       ]),
-      el('div', { class: 'manage-row' }, [select, button]),
+      el('div', { class: 'manage-row' }, [select, action]),
       status,
     ]);
   }
@@ -110,34 +119,24 @@ export function createManage(actions: Actions): Manage {
     const rows = state.localModels.map((model) =>
       el('div', { class: 'model-row' }, [
         el('div', { class: 'model-info' }, [
-          el('span', { class: 'model-name', text: model.name }),
+          el('span', { class: 'model-name' }, [icon('model', 'icon small'), model.name]),
           el('span', { class: 'manage-line muted', text: formatSize(model.size) }),
         ]),
-        el('button', {
-          class: 'button',
-          text: t('manage-launch'),
-          on: {
-            click: () => {
-              if (launchBackend) void actions.launchModel(model, launchBackend);
-            },
-          },
+        button('play', t('manage-launch'), () => {
+          if (launchBackend) void actions.launchModel(model, launchBackend);
         }),
       ]),
     );
 
     return el('div', { class: 'manage-card' }, [
-      el('div', { class: 'manage-head' }, [
-        el('h3', { class: 'manage-title', text: t('manage-local-models') }),
-        el('button', {
-          class: 'button',
-          text: t('manage-scan'),
-          on: { click: () => void actions.scanModels() },
-        }),
+      el('div', { class: 'manage-head manage-head-row' }, [
+        el('h3', { class: 'manage-title' }, [icon('folder', 'icon small'), t('manage-local-models')]),
+        button('scan', t('manage-scan'), () => void actions.scanModels()),
       ]),
       installed.length === 0
         ? el('p', { class: 'manage-line muted', text: t('manage-not-installed') })
         : el('label', { class: 'field' }, [
-            el('span', { class: 'field-label', text: t('manage-launch-with') }),
+            el('span', { class: 'field-label' }, [icon('play', 'icon small'), t('manage-launch-with')]),
             backendSelect,
           ]),
       state.localModels.length === 0
@@ -150,22 +149,18 @@ export function createManage(actions: Actions): Manage {
     const rows = state.running.map((run) =>
       el('div', { class: 'model-row' }, [
         el('div', { class: 'model-info' }, [
-          el('span', { class: 'model-name', text: `${run.providerId} · :${run.port}` }),
+          el('span', { class: 'model-name' }, [icon('server', 'icon small'), `${run.providerId} · :${run.port}`]),
           el('span', {
             class: 'manage-line muted',
             text: run.modelPath.split(/[/\\]/).pop() ?? run.modelPath,
           }),
         ]),
-        el('button', {
-          class: 'button danger',
-          text: t('manage-stop'),
-          on: { click: () => void actions.stopBackend(run.providerId) },
-        }),
+        button('stop', t('manage-stop'), () => void actions.stopBackend(run.providerId), true),
       ]),
     );
 
     return el('div', { class: 'manage-card' }, [
-      el('h3', { class: 'manage-title', text: t('manage-running') }),
+      el('h3', { class: 'manage-title' }, [icon('server', 'icon small'), t('manage-running')]),
       rows.length === 0
         ? el('p', { class: 'manage-line muted', text: t('manage-none-running') })
         : el('div', { class: 'model-list' }, rows),
@@ -175,22 +170,18 @@ export function createManage(actions: Actions): Manage {
   function update(): void {
     const nodes: Node[] = [
       el('div', { class: 'manage-top' }, [
-        el('h2', { class: 'manage-heading', text: t('nav-manage') }),
-        el('button', {
-          class: 'button',
-          text: t('manage-update-all'),
-          on: { click: () => void actions.updateBackends() },
-        }),
+        el('h2', { class: 'manage-heading' }, [icon('manage', 'icon heading'), t('nav-manage')]),
+        button('refresh', t('manage-update-all'), () => void actions.updateBackends()),
       ]),
     ];
 
-    if (state.busy) nodes.push(el('p', { class: 'manage-busy', text: t(state.busy) }));
-    if (state.error) nodes.push(el('p', { class: 'error', text: t(state.error) }));
+    if (state.busy) nodes.push(el('p', { class: 'manage-busy' }, [icon('sparkles', 'icon small'), t(state.busy)]));
+    if (state.error) nodes.push(el('p', { class: 'error' }, [icon('x'), t(state.error)]));
 
     nodes.push(hardwareCard());
     nodes.push(
       el('div', { class: 'manage-card' }, [
-        el('h3', { class: 'manage-title', text: t('backends-title') }),
+        el('h3', { class: 'manage-title' }, [icon('server', 'icon small'), t('backends-title')]),
         ...state.backends.map(backendCard),
       ]),
     );

@@ -1,6 +1,7 @@
 import type { Actions } from '../actions.js';
 import { el, option } from '../dom.js';
 import { t } from '../i18n.js';
+import { icon, type IconName } from '../icons.js';
 import { state } from '../state.js';
 
 function languageLabel(locale: string, displayLocale: string): string {
@@ -11,9 +12,9 @@ function languageLabel(locale: string, displayLocale: string): string {
   }
 }
 
-function field(label: string, control: HTMLElement): HTMLElement {
+function field(label: string, control: HTMLElement, iconName: IconName): HTMLElement {
   return el('label', { class: 'field' }, [
-    el('span', { class: 'field-label', text: label }),
+    el('span', { class: 'field-label' }, [icon(iconName), label]),
     control,
   ]);
 }
@@ -56,30 +57,27 @@ export function createSidebar(actions: Actions): Sidebar {
 
     body.replaceChildren(
       el('div', { class: 'brand' }, [
-        el('span', { class: 'brand-title', text: t('app-title') }),
+        el('span', { class: 'brand-title' }, [icon('sparkles', 'icon brand-icon'), t('app-title')]),
         el('span', { class: 'brand-tagline', text: t('app-tagline') }),
       ]),
       el('nav', { class: 'nav' }, [
         el('button', {
           class: `nav-button${state.view === 'chat' ? ' active' : ''}`,
-          text: t('nav-chat'),
           on: { click: () => actions.setView('chat') },
-        }),
+        }, [icon('chat'), t('nav-chat')]),
         el('button', {
           class: `nav-button${state.view === 'manage' ? ' active' : ''}`,
-          text: t('nav-manage'),
           on: { click: () => actions.setView('manage') },
-        }),
+        }, [icon('manage'), t('nav-manage')]),
       ]),
-      field(t('provider-label'), providerSelect),
-      field(t('model-label'), modelSelect),
-      field(t('language-label'), localeSelect),
+      field(t('provider-label'), providerSelect, 'server'),
+      field(t('model-label'), modelSelect, 'model'),
+      field(t('language-label'), localeSelect, 'globe'),
       el('button', {
         class: 'refresh',
-        text: t('models-refresh'),
         on: { click: () => void actions.refreshModels() },
-      }),
-      state.error ? el('p', { class: 'error', text: t(state.error) }) : el('span', { class: 'error' }),
+      }, [icon('refresh'), t('models-refresh')]),
+      state.error ? el('p', { class: 'error' }, [icon('x'), t(state.error)]) : el('span', { class: 'error' }),
     );
   }
 

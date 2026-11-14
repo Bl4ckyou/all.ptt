@@ -149,7 +149,7 @@ packages/core        domain types and the ProviderAdapter contract
 packages/providers   OpenAI-compatible client and provider factories
 packages/i18n        locale list, detection, Fluent translator
 apps/server          HTTP API, routing, static assets
-apps/web             Vite + TypeScript UI
+apps/web             Vite + TypeScript UI (reusable SVG icons in src/icons.ts)
 scripts              asset generation, i18n gate, bundling
 ```
 
