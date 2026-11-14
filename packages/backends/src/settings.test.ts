@@ -126,4 +126,39 @@ describe('buildSettingArgs', () => {
       }),
     ).toEqual(['--mtp-requantize-output-tensor', 'q8_0', '--spec-type', 'mtp:n_max=1']);
   });
+
+  it('composes ik spec-type parameters into a single argument', () => {
+    expect(
+      buildSettingArgs(manifest.backends['ik-llama-cpp'], manifest.settings, {
+        'spec-type': 'ngram-map-k',
+        'spec-ngram-size-n': 8,
+        'spec-ngram-size-m': 4,
+        'spec-ngram-min-hits': 2,
+      }),
+    ).toEqual(['--spec-type', 'ngram-map-k:ngram_size_n=8,ngram_size_m=4,ngram_min_hits=2']);
+  });
+
+  it('skips dependent spec parameters when the type does not match', () => {
+    expect(
+      buildSettingArgs(manifest.backends['ik-llama-cpp'], manifest.settings, {
+        'spec-type': 'ngram-map-k',
+        'spec-suffix-max-depth': 10,
+      }),
+    ).toEqual(['--spec-type', 'ngram-map-k']);
+    expect(
+      buildSettingArgs(manifest.backends['ik-llama-cpp'], manifest.settings, {
+        'spec-type': 'none',
+        'spec-n-max': 4,
+      }),
+    ).toEqual([]);
+  });
+
+  it('maps llama spec flags separately', () => {
+    expect(
+      buildSettingArgs(manifest.backends['llama-cpp'], manifest.settings, {
+        'spec-type': 'ngram-map-k',
+        'spec-ngram-size-n': 8,
+      }),
+    ).toEqual(['--spec-type', 'ngram-map-k', '--spec-ngram-size-n', '8']);
+  });
 });

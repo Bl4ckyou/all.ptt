@@ -96,6 +96,54 @@ export function createManage(actions: Actions): Manage {
       .map((backend) => ({ id: backend.id, label: backend.label }));
   }
 
+  function dependsOnSatisfied(
+    setting: ResolvedSettingInfo,
+    values: Record<string, SettingValue>,
+  ): boolean {
+    if (!setting.dependsOn) return true;
+    const current = values[setting.dependsOn.setting];
+    if (current === undefined) return false;
+    const text = String(current);
+    if (text === 'none') return false;
+    if (setting.dependsOn.values && !setting.dependsOn.values.includes(text)) return false;
+    if (setting.dependsOn.includes && !text.includes(setting.dependsOn.includes)) return false;
+    return true;
+  }
+
+  function repositoryKey(path: string): string {
+    const index = path.indexOf('/snapshots/');
+    return index >= 0 ? path.slice(0, index) : path.slice(0, Math.max(path.lastIndexOf('/'), 0));
+  }
+
+  function nameTokens(name: string): Set<string> {
+    const ignored = new Set(['gguf', 'model', 'models', 'mmproj', 'mtp', 'instruct']);
+    return new Set(
+      name
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((token) => token.length > 2 && !ignored.has(token)),
+    );
+  }
+
+  function mmprojScore(file: LocalModelInfo, model: LocalModelInfo | null): number {
+    if (!model) return 0;
+    let score = 0;
+    if (repositoryKey(file.path) === repositoryKey(model.path)) score += 100;
+    const modelTokens = nameTokens(model.name);
+    for (const token of nameTokens(file.name)) {
+      if (modelTokens.has(token)) score += 10;
+    }
+    return score;
+  }
+
+  function draftPriority(name: string): number {
+    return /(^|[-_.])(assistant|draft|mtp|dflash|dspark|eagle)/i.test(name) ? 0 : 1;
+  }
+
+  function shortPath(path: string): string {
+    return path.split(/[/\\]/).slice(-2).join('/');
+  }
+
   function hardwareCard(): HTMLElement {
     const hw = state.hardware;
     const parts: string[] = [];
@@ -178,40 +226,115 @@ export function createManage(actions: Actions): Manage {
     });
   }
 
+  function filePicker(
+    setting: ResolvedSettingInfo,
+    current: SettingValue | undefined,
+  ): HTMLElement {
+    const candidates: LocalModelInfo[] =
+      setting.fileKind === 'mmproj'
+        ? state.auxiliary.filter((file) => file.kind === 'mmproj')
+        : setting.fileKind === 'mtp'
+          ? state.auxiliary.filter((file) => file.kind === 'mtp')
+          : state.localModels;
+
+    const input = el('input', {
+      class: 'control file-value',
+      value: current === undefined ? '' : String(current),
+      attrs: { type: 'text', placeholder: t('manage-path-placeholder') },
+      on: {
+        input: (event) => {
+          const raw = (event.target as HTMLInputElement).value;
+          if (raw === '') delete configValues[setting.id];
+          else configValues[setting.id] = raw;
+          refresh();
+        },
+      },
+    });
+
+    const suggestions = el('div', { class: 'file-suggestions' });
+
+    function ranked(term: string): LocalModelInfo[] {
+      const pool = candidates.map((file) => ({
+        file,
+        score:
+          setting.fileKind === 'mmproj'
+            ? mmprojScore(file, configModel)
+            : setting.fileKind === 'model'
+              ? 1 - draftPriority(file.name)
+              : 0,
+      }));
+
+      let list = pool;
+      if (setting.fileKind === 'mmproj' && term.length === 0) {
+        const matched = pool.filter((entry) => entry.score > 0);
+        if (matched.length > 0) list = matched;
+      }
+      if (term.length > 0) {
+        list = pool.filter(
+          (entry) =>
+            entry.file.name.toLowerCase().includes(term) ||
+            entry.file.path.toLowerCase().includes(term),
+        );
+      }
+
+      list.sort((a, b) => b.score - a.score || a.file.name.localeCompare(b.file.name));
+      return list.map((entry) => entry.file);
+    }
+
+    function refresh(): void {
+      const term = input.value.trim().toLowerCase();
+      const items = ranked(term).slice(0, 30);
+
+      if (items.length === 0) {
+        suggestions.replaceChildren(
+          el('p', { class: 'manage-line muted', text: t('manage-no-results') }),
+        );
+        return;
+      }
+
+      suggestions.replaceChildren(
+        ...items.map((file) =>
+          el(
+            'button',
+            {
+              class: 'file-option',
+              attrs: { type: 'button' },
+              on: {
+                click: () => {
+                  configValues[setting.id] = file.path;
+                  input.value = file.path;
+                  refresh();
+                },
+              },
+            },
+            [
+              el('span', { class: 'file-option-name', text: file.name }),
+              el('span', { class: 'file-option-path', text: shortPath(file.path) }),
+            ],
+          ),
+        ),
+      );
+    }
+
+    const clear = iconButton('x', t('manage-config-clear'), () => {
+      delete configValues[setting.id];
+      input.value = '';
+      refresh();
+    });
+
+    refresh();
+
+    return el('div', { class: 'file-picker' }, [
+      el('div', { class: 'file-picker-row' }, [input, clear]),
+      suggestions,
+    ]);
+  }
+
   function settingControl(setting: ResolvedSettingInfo): HTMLElement {
     const current = configValues[setting.id] ?? setting.default;
 
     if (setting.type === 'path') {
-      const listId = `path-options-${setting.id}`;
-      const candidates =
-        setting.fileKind === 'mmproj'
-          ? state.auxiliary.filter((file) => file.kind === 'mmproj')
-          : setting.fileKind === 'mtp'
-            ? state.auxiliary.filter((file) => file.kind === 'mtp')
-            : state.localModels;
-
-      const input = el('input', {
-        class: 'control',
-        value: current === undefined ? '' : String(current),
-        attrs: { type: 'text', list: listId, placeholder: t('manage-path-placeholder') },
-        on: {
-          input: (event) => {
-            const raw = (event.target as HTMLInputElement).value;
-            if (raw === '') {
-              delete configValues[setting.id];
-            } else {
-              configValues[setting.id] = raw;
-            }
-          },
-        },
-      });
-
-      const options = candidates.map((file) => el('option', { value: file.path, text: file.name }));
-
-      return el('div', { class: 'path-control' }, [
-        input,
-        el('datalist', { attrs: { id: listId } }, options),
-      ]);
+      return filePicker(setting, current);
     }
 
     if (setting.type === 'boolean') {
@@ -244,6 +367,7 @@ export function createManage(actions: Actions): Manage {
             change: (event) => {
               configValues[setting.id] = (event.target as HTMLSelectElement).value;
               updateEstimate();
+              if (setting.id === 'spec-type') renderSettings();
             },
           },
         },
@@ -274,7 +398,7 @@ export function createManage(actions: Actions): Manage {
   }
 
   function settingRow(setting: ResolvedSettingInfo): HTMLElement {
-    return el('div', { class: 'setting-row' }, [
+    return el('div', { class: `setting-row${setting.type === 'path' ? ' path-row' : ''}` }, [
       el('div', { class: 'setting-info' }, [
         el('span', { class: 'setting-name', text: t(`setting-${setting.id}`) }),
         el('span', { class: 'setting-desc muted', text: t(setting.descriptionKey) }),
@@ -343,8 +467,11 @@ export function createManage(actions: Actions): Manage {
     } else if (configSettings.length === 0) {
       settingsHost.append(el('p', { class: 'manage-line muted', text: t('manage-config-none') }));
     } else {
-      const basic = configSettings.filter((setting) => !setting.advanced);
-      const advanced = configSettings.filter((setting) => setting.advanced);
+      const usable = configSettings.filter((setting) =>
+        dependsOnSatisfied(setting, configValues),
+      );
+      const basic = usable.filter((setting) => !setting.advanced);
+      const advanced = usable.filter((setting) => setting.advanced);
 
       if (basic.length > 0) settingsHost.append(renderGroup(basic));
       if (advanced.length > 0) {
@@ -367,6 +494,7 @@ export function createManage(actions: Actions): Manage {
 
   async function loadConfigBody(): Promise<void> {
     if (!configModel) return;
+    const model = configModel;
 
     if (!configBackend) {
       configError = 'manage-not-installed';
@@ -385,13 +513,25 @@ export function createManage(actions: Actions): Manage {
     try {
       const [settings, config, info] = await Promise.all([
         actions.getBackendSettings(configBackend),
-        actions.getModelConfig(configModel.path),
-        actions.getModelInfo(configModel.path),
+        actions.getModelConfig(model.path),
+        actions.getModelInfo(model.path),
       ]);
       configSettings = settings;
       configValues = defaultValues(settings, config?.settings ?? {});
       configExtra = config?.extraArgs ?? '';
       configInfo = info;
+
+      if (configValues.mmproj === undefined) {
+        const ranked = state.auxiliary
+          .filter((file) => file.kind === 'mmproj')
+          .map((file) => ({ file, score: mmprojScore(file, model) }))
+          .filter((entry) => entry.score > 0)
+          .sort((a, b) => b.score - a.score);
+
+        if (ranked.length > 0 && ranked[0].score > (ranked[1]?.score ?? 0)) {
+          configValues.mmproj = ranked[0].file.path;
+        }
+      }
     } catch {
       configError = 'error-config';
     }

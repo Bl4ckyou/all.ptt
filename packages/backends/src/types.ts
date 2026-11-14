@@ -31,6 +31,12 @@ export type SettingCategory =
   | 'mtp';
 export type FileKind = 'model' | 'mmproj' | 'mtp';
 
+export interface SettingDependency {
+  setting: string;
+  values?: string[];
+  includes?: string;
+}
+
 export interface SettingDefinition {
   type: SettingType;
   category: SettingCategory;
@@ -42,14 +48,19 @@ export interface SettingDefinition {
   advanced?: boolean;
   platforms?: string[];
   fileKind?: FileKind;
+  dependsOn?: SettingDependency;
 }
 
 export type SettingsCatalog = Record<string, SettingDefinition>;
 
 export interface SettingMappingObject {
-  flag: string;
+  flag?: string;
   invert?: boolean;
   default?: string | number | boolean;
+  choices?: string[];
+  compose?: string;
+  key?: string;
+  stage?: boolean;
 }
 
 export type SettingMapping = string | SettingMappingObject;

@@ -9,7 +9,7 @@ import type {
 } from './types.js';
 
 export interface ResolvedSettingWithFlag extends ResolvedSetting {
-  flag: string;
+  flag?: string;
   invert?: boolean;
 }
 
@@ -76,15 +76,33 @@ export async function discoverFlags(binary: string): Promise<Set<string> | null>
 }
 
 function mappingOf(mapping: SettingMapping): {
-  flag: string;
+  flag?: string;
   invert?: boolean;
   default?: string | number | boolean;
+  choices?: string[];
+  compose?: string;
+  key?: string;
+  stage?: boolean;
 } {
   return typeof mapping === 'string' ? { flag: mapping } : mapping;
 }
 
 function supportedOnThisPlatform(definition: { platforms?: string[] }): boolean {
   return !definition.platforms || definition.platforms.includes(process.platform);
+}
+
+function dependencySatisfied(
+  definition: { dependsOn?: { setting: string; values?: string[]; includes?: string } },
+  values: Record<string, SettingValue>,
+): boolean {
+  if (!definition.dependsOn) return true;
+  const current = values[definition.dependsOn.setting];
+  if (current === undefined) return false;
+  const text = String(current);
+  if (text === 'none') return false;
+  if (definition.dependsOn.values && !definition.dependsOn.values.includes(text)) return false;
+  if (definition.dependsOn.includes && !text.includes(definition.dependsOn.includes)) return false;
+  return true;
 }
 
 // Resolve semantic settings for a backend, filtered by platform and help output.
@@ -101,16 +119,17 @@ export async function resolveSettings(
     if (!definition) continue;
     if (!supportedOnThisPlatform(definition)) continue;
 
-    const { flag, invert, default: overrideDefault } = mappingOf(mapping);
-    if (discovered && !discovered.has(flag)) continue;
+    const override = mappingOf(mapping);
+    if (discovered && override.flag && !discovered.has(override.flag)) continue;
 
     settings.push({
       id,
       ...definition,
-      ...(overrideDefault !== undefined ? { default: overrideDefault } : {}),
+      ...(override.default !== undefined ? { default: override.default } : {}),
+      ...(override.choices !== undefined ? { choices: override.choices } : {}),
       available: true,
-      flag,
-      invert,
+      flag: override.flag,
+      invert: override.invert,
     });
   }
 
@@ -136,14 +155,31 @@ export function buildSettingArgs(
   extraArgs = '',
 ): string[] {
   const args: string[] = [];
+  const composed = new Map<string, { flag: string; stage: string; params: string[] }>();
 
   for (const [id, value] of Object.entries(values)) {
     const definition = catalog[id];
     const mapping = backend.settings?.[id];
     if (!definition || !mapping) continue;
     if (!supportedOnThisPlatform(definition)) continue;
+    if (!dependencySatisfied(definition, values)) continue;
 
-    const { flag, invert } = mappingOf(mapping);
+    const override = mappingOf(mapping);
+
+    if (override.compose) {
+      const group = composed.get(override.compose) ?? { flag: '', stage: '', params: [] };
+      if (override.flag) group.flag = override.flag;
+      if (override.stage) {
+        group.stage = value === undefined ? '' : String(value);
+      } else if (override.key && value !== '' && value !== undefined) {
+        group.params.push(`${override.key}=${String(value)}`);
+      }
+      composed.set(override.compose, group);
+      continue;
+    }
+
+    const { flag, invert } = override;
+    if (!flag) continue;
 
     if (definition.type === 'boolean') {
       const enabled = value === true || value === 'true';
@@ -154,6 +190,14 @@ export function buildSettingArgs(
 
     if (value === '' || value === null || value === undefined) continue;
     args.push(flag, String(value));
+  }
+
+  for (const group of composed.values()) {
+    if (!group.flag || group.stage === '' || group.stage === 'none') continue;
+    args.push(
+      group.flag,
+      group.params.length > 0 ? `${group.stage}:${group.params.join(',')}` : group.stage,
+    );
   }
 
   return [...args, ...parseExtraArgs(extraArgs)];

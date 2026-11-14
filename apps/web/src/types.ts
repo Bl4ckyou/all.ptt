@@ -77,6 +77,7 @@ export interface ResolvedSettingInfo {
   advanced?: boolean;
   platforms?: string[];
   fileKind?: 'model' | 'mmproj' | 'mtp';
+  dependsOn?: { setting: string; values?: string[]; includes?: string };
   available: boolean;
 }
 
