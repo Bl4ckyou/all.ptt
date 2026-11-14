@@ -160,6 +160,22 @@ Extra model folders can be configured in `config.json`:
 
 `PTT_MODEL_DIRS` (path-delimiter separated) and `PTT_BACKEND_ROOT` override these.
 
+## Projects and conversations
+
+Projects are plain folders, no database:
+
+```
+.ptt/projects/<id>/
+  project.json                  name and timestamps
+  notes.md                      project context, sent as a system message
+  conversations/<id>.json       conversation title and timestamps
+  conversations/<id>.jsonl      messages, append-only
+```
+
+`notes.md` is human-editable and read by PTT before each message. Conversation
+titles are derived from the first user message. Everything stays local and
+gitignored.
+
 ## Development
 
 ```bash

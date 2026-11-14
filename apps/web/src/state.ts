@@ -2,9 +2,11 @@ import type { ChatMessage, ModelInfo } from '@ptt/core';
 import type {
   AuxiliaryFile,
   BackendInfo,
+  ConversationMeta,
   HardwareInfo,
   JobInfo,
   LocalModelInfo,
+  ProjectMeta,
   ProviderSummary,
   RunningBackendInfo,
 } from './types.js';
@@ -32,6 +34,11 @@ export interface State {
   running: RunningBackendInfo[];
   job: JobInfo | null;
   updateReady: boolean;
+  projects: ProjectMeta[];
+  projectId: string | null;
+  projectNotes: string;
+  conversations: ConversationMeta[];
+  conversationId: string | null;
 }
 
 export const state: State = {
@@ -57,6 +64,11 @@ export const state: State = {
   running: [],
   job: null,
   updateReady: false,
+  projects: [],
+  projectId: null,
+  projectNotes: '',
+  conversations: [],
+  conversationId: null,
 };
 
 type Listener = () => void;

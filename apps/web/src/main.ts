@@ -10,6 +10,12 @@ import {
   getModelInfo,
   getModels,
   getProviders,
+  getProject,
+  getProjects,
+  getConversation,
+  appendMessage,
+  createConversation,
+  createProject,
   getJob,
   cancelJob as cancelJobRequest,
   launchBackend,
@@ -18,6 +24,7 @@ import {
   restartProject as restartProjectRequest,
   revealPath as revealPathRequest,
   saveModelConfig,
+  saveProjectNotes,
   startInstall,
   startUpdate,
   stopBackend,
@@ -37,6 +44,7 @@ import type {
 import { createChat } from './views/chat.js';
 import { createJobBar } from './views/job-bar.js';
 import { createManage } from './views/manage.js';
+import { openNotesModal } from './views/notes-modal.js';
 import { createSidebar } from './views/sidebar.js';
 
 let activeRequest: AbortController | null = null;
@@ -325,11 +333,148 @@ function stop(): void {
   activeRequest = null;
 }
 
-function send(text: string): void {
+async function refreshProjects(): Promise<void> {
+  try {
+    state.projects = await getProjects();
+  } catch {
+    state.projects = [];
+  }
+
+  if (state.projectId && !state.projects.some((project) => project.id === state.projectId)) {
+    state.projectId = null;
+    state.projectNotes = '';
+    state.conversations = [];
+    state.conversationId = null;
+  }
+  notify();
+}
+
+async function selectConversationInternal(
+  projectId: string,
+  conversationId: string,
+): Promise<void> {
+  const data = await getConversation(projectId, conversationId);
+  state.conversationId = conversationId;
+  state.messages = data.messages.map((message) => ({
+    role: message.role,
+    content: message.content,
+  }));
+  localStorage.setItem(`ptt.conversation.${projectId}`, conversationId);
+  notify();
+}
+
+async function selectProject(id: string): Promise<void> {
+  stop();
+  state.streaming = false;
+  state.projectId = id;
+  state.error = null;
+  localStorage.setItem('ptt.project', id);
+
+  try {
+    const detail = await getProject(id);
+    state.projectNotes = detail.notes;
+    state.conversations = detail.conversations;
+
+    const stored = localStorage.getItem(`ptt.conversation.${id}`);
+    const conversation =
+      detail.conversations.find((entry) => entry.id === stored) ?? detail.conversations[0];
+
+    if (conversation) {
+      await selectConversationInternal(id, conversation.id);
+    } else {
+      state.conversationId = null;
+      state.messages = [];
+    }
+  } catch {
+    state.error = 'error-backend';
+  }
+  notify();
+}
+
+async function createProjectAction(name: string): Promise<void> {
+  try {
+    const project = await createProject(name);
+    await refreshProjects();
+    await selectProject(project.id);
+  } catch {
+    state.error = 'error-backend';
+    notify();
+  }
+}
+
+async function createConversationAction(): Promise<void> {
+  if (!state.projectId) return;
+  try {
+    const conversation = await createConversation(state.projectId);
+    state.conversations = [conversation, ...state.conversations];
+    await selectConversationInternal(state.projectId, conversation.id);
+  } catch {
+    state.error = 'error-backend';
+    notify();
+  }
+}
+
+async function selectConversationAction(id: string): Promise<void> {
+  if (!state.projectId) return;
+  stop();
+  state.streaming = false;
+  try {
+    await selectConversationInternal(state.projectId, id);
+  } catch {
+    state.error = 'error-backend';
+    notify();
+  }
+}
+
+async function saveNotesAction(content: string): Promise<void> {
+  if (!state.projectId) return;
+  try {
+    await saveProjectNotes(state.projectId, content);
+    state.projectNotes = content;
+  } catch {
+    state.error = 'error-backend';
+  }
+  notify();
+}
+
+function openNotesAction(): void {
+  if (!state.projectId) return;
+  openNotesModal(state.projectNotes, saveNotesAction);
+}
+
+async function send(text: string): Promise<void> {
   if (!state.providerId || !state.model) {
     state.error = 'error-no-model';
     notify();
     return;
+  }
+
+  const projectId = state.projectId;
+  let conversationId = state.conversationId;
+
+  if (projectId) {
+    if (!conversationId) {
+      try {
+        const conversation = await createConversation(projectId);
+        state.conversations = [conversation, ...state.conversations];
+        state.conversationId = conversation.id;
+        localStorage.setItem(`ptt.conversation.${projectId}`, conversation.id);
+        conversationId = conversation.id;
+      } catch {
+        // continue without persistence
+      }
+    }
+
+    if (conversationId) {
+      void appendMessage(projectId, conversationId, 'user', text)
+        .then((meta) => {
+          state.conversations = state.conversations.map((entry) =>
+            entry.id === meta.id ? meta : entry,
+          );
+          notify();
+        })
+        .catch(() => undefined);
+    }
   }
 
   state.messages.push({ role: 'user', content: text });
@@ -338,9 +483,16 @@ function send(text: string): void {
   state.error = null;
   notify();
 
-  const history = state.messages
-    .slice(0, assistantIndex)
-    .map((message) => ({ role: message.role, content: message.content }));
+  const context =
+    projectId && state.projectNotes.trim()
+      ? [{ role: 'system' as const, content: state.projectNotes }]
+      : [];
+  const history = [
+    ...context,
+    ...state.messages
+      .slice(0, assistantIndex)
+      .map((message) => ({ role: message.role, content: message.content })),
+  ];
 
   const controller = new AbortController();
   activeRequest = controller;
@@ -364,6 +516,18 @@ function send(text: string): void {
     .finally(() => {
       state.streaming = false;
       if (activeRequest === controller) activeRequest = null;
+
+      const content = state.messages[assistantIndex]?.content ?? '';
+      if (projectId && conversationId && content.trim().length > 0) {
+        void appendMessage(projectId, conversationId, 'assistant', content)
+          .then((meta) => {
+            state.conversations = state.conversations.map((entry) =>
+              entry.id === meta.id ? meta : entry,
+            );
+            notify();
+          })
+          .catch(() => undefined);
+      }
       notify();
     });
 }
@@ -384,6 +548,13 @@ const actions: Actions = {
   cancelJob: cancelJobAction,
   updateProject: updateProjectAction,
   restartProject: restartProjectAction,
+  refreshProjects,
+  createProject: createProjectAction,
+  selectProject,
+  createConversation: createConversationAction,
+  selectConversation: selectConversationAction,
+  saveNotes: saveNotesAction,
+  openNotes: openNotesAction,
   scanModels,
   revealPath: revealPathAction,
   getBackendSettings: getBackendSettingsAction,
@@ -438,6 +609,13 @@ async function bootstrap(): Promise<void> {
   syncView();
   jobBar.update();
   await refreshModels();
+
+  await refreshProjects();
+  const storedProject = localStorage.getItem('ptt.project');
+  const initialProject =
+    state.projects.find((project) => project.id === storedProject) ?? state.projects[0];
+  if (initialProject) await selectProject(initialProject.id);
+
   void refreshBackends();
   void scanModels();
 }

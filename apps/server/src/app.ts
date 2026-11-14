@@ -22,6 +22,15 @@ import {
 } from './routes/local-models.js';
 import { modelConfigRoute, saveModelConfigRoute } from './routes/model-config.js';
 import { modelsRoute } from './routes/models.js';
+import {
+  appendMessageRoute,
+  conversationRoute,
+  createConversationRoute,
+  createProjectRoute,
+  projectRoute,
+  projectsRoute,
+  saveNotesRoute,
+} from './routes/projects.js';
 import { providersRoute } from './routes/providers.js';
 import {
   restartProjectRoute,
@@ -52,6 +61,13 @@ export function createApp(context: AppContext): Router {
     .post('/api/backends/stop', stopBackendRoute(context))
     .get('/api/models/config', modelConfigRoute(context))
     .post('/api/models/config', saveModelConfigRoute(context))
+    .get('/api/projects', projectsRoute(context))
+    .post('/api/projects', createProjectRoute(context))
+    .get('/api/projects/:id', projectRoute(context))
+    .post('/api/projects/:id/notes', saveNotesRoute(context))
+    .post('/api/projects/:id/conversations', createConversationRoute(context))
+    .get('/api/projects/:id/conversations/:chatId', conversationRoute(context))
+    .post('/api/projects/:id/conversations/:chatId/messages', appendMessageRoute(context))
     .get('/api/system/info', systemInfoRoute(context))
     .post('/api/system/update', updateProjectRoute(context))
     .post('/api/system/restart', restartProjectRoute(context));

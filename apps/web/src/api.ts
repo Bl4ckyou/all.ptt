@@ -4,12 +4,15 @@ import type {
   AuxiliaryFile,
   BackendSettingsInfo,
   BackendsInfo,
+  ConversationMeta,
   LocalModelInfo,
   ModelConfigInfo,
   JobInfo,
+  ProjectMeta,
   ProviderSummary,
   ResolvedSettingInfo,
   SettingValue,
+  StoredMessage,
 } from './types.js';
 
 export interface LocaleMeta {
@@ -151,6 +154,86 @@ export async function updateProject(): Promise<void> {
 export async function restartProject(): Promise<void> {
   const response = await fetch('/api/system/restart', { method: 'POST' });
   if (!response.ok) throw new Error('project restart failed');
+}
+
+export async function getProjects(): Promise<ProjectMeta[]> {
+  const response = await fetch('/api/projects');
+  if (!response.ok) throw new Error('failed to load projects');
+  const body = (await response.json()) as { projects: ProjectMeta[] };
+  return body.projects;
+}
+
+export async function createProject(name: string): Promise<ProjectMeta> {
+  const response = await fetch('/api/projects', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  if (!response.ok) throw new Error('failed to create project');
+  const body = (await response.json()) as { project: ProjectMeta };
+  return body.project;
+}
+
+export interface ProjectDetail {
+  project: ProjectMeta;
+  notes: string;
+  conversations: ConversationMeta[];
+}
+
+export async function getProject(id: string): Promise<ProjectDetail> {
+  const response = await fetch(`/api/projects/${encodeURIComponent(id)}`);
+  if (!response.ok) throw new Error('failed to load project');
+  return (await response.json()) as ProjectDetail;
+}
+
+export async function saveProjectNotes(id: string, content: string): Promise<void> {
+  const response = await fetch(`/api/projects/${encodeURIComponent(id)}/notes`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ content }),
+  });
+  if (!response.ok) throw new Error('failed to save notes');
+}
+
+export async function createConversation(projectId: string, title = ''): Promise<ConversationMeta> {
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/conversations`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ title }),
+  });
+  if (!response.ok) throw new Error('failed to create conversation');
+  const body = (await response.json()) as { conversation: ConversationMeta };
+  return body.conversation;
+}
+
+export async function getConversation(
+  projectId: string,
+  conversationId: string,
+): Promise<{ conversation: ConversationMeta; messages: StoredMessage[] }> {
+  const response = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/conversations/${encodeURIComponent(conversationId)}`,
+  );
+  if (!response.ok) throw new Error('failed to load conversation');
+  return (await response.json()) as { conversation: ConversationMeta; messages: StoredMessage[] };
+}
+
+export async function appendMessage(
+  projectId: string,
+  conversationId: string,
+  role: 'user' | 'assistant',
+  content: string,
+): Promise<ConversationMeta> {
+  const response = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/conversations/${encodeURIComponent(conversationId)}/messages`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ role, content }),
+    },
+  );
+  if (!response.ok) throw new Error('failed to save message');
+  const body = (await response.json()) as { conversation: ConversationMeta };
+  return body.conversation;
 }
 
 export interface LaunchResult {

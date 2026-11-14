@@ -125,3 +125,23 @@ export interface JobInfo {
   startedAt: string;
   finishedAt?: string;
 }
+
+export interface ProjectMeta {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConversationMeta {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StoredMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  at: string;
+}

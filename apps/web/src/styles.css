@@ -235,6 +235,24 @@ body {
   gap: 7px;
 }
 
+.inline-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inline-control .control {
+  flex: 1;
+}
+
+.notes-area {
+  width: 100%;
+  min-height: 280px;
+  resize: vertical;
+  font: inherit;
+  line-height: 1.5;
+}
+
 .field-label {
   display: inline-flex;
   align-items: center;

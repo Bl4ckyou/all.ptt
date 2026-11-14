@@ -5,16 +5,19 @@ import { loadConfig } from './config.js';
 import { webAssets } from './generated/assets.js';
 import { JobManager } from './jobs.js';
 import { ProviderRegistry } from './providers.js';
+import { ProjectStore } from './projects.js';
 import { serveStatic } from './static.js';
 
 const config = await loadConfig();
 const registry = new ProviderRegistry(config.providers);
 const launcher = new BackendLauncher(config.backendRoot, (providerId) => registry.remove(providerId));
 const jobs = new JobManager();
+const projects = new ProjectStore(config.backendRoot);
 const context = {
   registry,
   launcher,
   jobs,
+  projects,
   manifest: loadManifest(),
   root: config.backendRoot,
   modelDirs: config.modelDirs,

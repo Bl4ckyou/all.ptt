@@ -22,6 +22,13 @@ export interface Actions {
   cancelJob(): Promise<void>;
   updateProject(): Promise<void>;
   restartProject(): Promise<void>;
+  refreshProjects(): Promise<void>;
+  createProject(name: string): Promise<void>;
+  selectProject(id: string): Promise<void>;
+  createConversation(): Promise<void>;
+  selectConversation(id: string): Promise<void>;
+  saveNotes(content: string): Promise<void>;
+  openNotes(): void;
   scanModels(): Promise<void>;
   revealPath(target: string): Promise<void>;
   getBackendSettings(backendId: string): Promise<BackendSettingsInfo>;
