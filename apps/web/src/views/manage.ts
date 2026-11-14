@@ -272,7 +272,23 @@ export function createManage(actions: Actions): Manage {
     } else if (configSettings.length === 0) {
       settingsHost.append(el('p', { class: 'manage-line muted', text: t('manage-config-none') }));
     } else {
-      settingsHost.append(el('div', { class: 'setting-list' }, configSettings.map(settingRow)));
+      const basic = configSettings.filter((setting) => !setting.advanced);
+      const advanced = configSettings.filter((setting) => setting.advanced);
+
+      if (basic.length > 0) {
+        settingsHost.append(el('div', { class: 'setting-list' }, basic.map(settingRow)));
+      }
+      if (advanced.length > 0) {
+        settingsHost.append(
+          el('details', { class: 'advanced' }, [
+            el('summary', { class: 'advanced-summary' }, [
+              icon('manage', 'icon small'),
+              t('manage-advanced'),
+            ]),
+            el('div', { class: 'setting-list advanced-list' }, advanced.map(settingRow)),
+          ]),
+        );
+      }
     }
 
     settingsHost.classList.remove('fade-in');

@@ -30,6 +30,8 @@ export interface SettingDefinition {
   max?: number;
   choices?: string[];
   descriptionKey: string;
+  advanced?: boolean;
+  platforms?: string[];
 }
 
 export type SettingsCatalog = Record<string, SettingDefinition>;
@@ -37,6 +39,7 @@ export type SettingsCatalog = Record<string, SettingDefinition>;
 export interface SettingMappingObject {
   flag: string;
   invert?: boolean;
+  default?: string | number | boolean;
 }
 
 export type SettingMapping = string | SettingMappingObject;

@@ -60,14 +60,42 @@ describe('buildSettingArgs', () => {
     expect(buildSettingArgs(ik, manifest.settings, { mmap: true })).toEqual([]);
   });
 
-  it('groups CPU affinity under backend-specific flags', () => {
+  it('maps CPU range to both backends', () => {
     expect(
-      buildSettingArgs(manifest.backends['llama-cpp'], manifest.settings, { 'cpu-affinity': '0-7' }),
+      buildSettingArgs(manifest.backends['llama-cpp'], manifest.settings, { 'cpu-range': '0-7' }),
     ).toEqual(['--cpu-range', '0-7']);
     expect(
-      buildSettingArgs(manifest.backends['ik-llama-cpp'], manifest.settings, {
-        'cpu-affinity': '0-7',
-      }),
-    ).toEqual(['--cpu-affinity', '0-7']);
+      buildSettingArgs(manifest.backends['ik-llama-cpp'], manifest.settings, { 'cpu-range': '0-7' }),
+    ).toEqual(['--cpu-range', '0-7']);
+  });
+
+  it('treats ik CPU affinity as a boolean Linux-only flag', () => {
+    const ik = manifest.backends['ik-llama-cpp'];
+    expect(buildSettingArgs(ik, manifest.settings, { 'cpu-affinity': true })).toEqual([
+      '--cpu-affinity',
+    ]);
+    expect(buildSettingArgs(ik, manifest.settings, { 'cpu-affinity': false })).toEqual([]);
+    expect(
+      buildSettingArgs(manifest.backends['llama-cpp'], manifest.settings, { 'cpu-affinity': true }),
+    ).toEqual([]);
+    expect(manifest.settings['cpu-affinity'].platforms).toEqual(['linux']);
+  });
+
+  it('maps repacking with backend-specific polarity', () => {
+    const llama = manifest.backends['llama-cpp'];
+    const ik = manifest.backends['ik-llama-cpp'];
+    expect(buildSettingArgs(llama, manifest.settings, { repack: false })).toEqual(['--no-repack']);
+    expect(buildSettingArgs(llama, manifest.settings, { repack: true })).toEqual([]);
+    expect(buildSettingArgs(ik, manifest.settings, { repack: true })).toEqual(['--run-time-repack']);
+    expect(buildSettingArgs(ik, manifest.settings, { repack: false })).toEqual([]);
+  });
+
+  it('maps merge-qkv on ik only', () => {
+    expect(
+      buildSettingArgs(manifest.backends['ik-llama-cpp'], manifest.settings, { 'merge-qkv': true }),
+    ).toEqual(['--merge-qkv']);
+    expect(
+      buildSettingArgs(manifest.backends['llama-cpp'], manifest.settings, { 'merge-qkv': true }),
+    ).toEqual([]);
   });
 });

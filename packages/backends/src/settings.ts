@@ -75,11 +75,19 @@ export async function discoverFlags(binary: string): Promise<Set<string> | null>
   return flags;
 }
 
-function mappingOf(mapping: SettingMapping): { flag: string; invert?: boolean } {
+function mappingOf(mapping: SettingMapping): {
+  flag: string;
+  invert?: boolean;
+  default?: string | number | boolean;
+} {
   return typeof mapping === 'string' ? { flag: mapping } : mapping;
 }
 
-// Resolve semantic settings for a backend, filtered by the binary's help output.
+function supportedOnThisPlatform(definition: { platforms?: string[] }): boolean {
+  return !definition.platforms || definition.platforms.includes(process.platform);
+}
+
+// Resolve semantic settings for a backend, filtered by platform and help output.
 export async function resolveSettings(
   binary: string | null,
   backend: BackendEntry,
@@ -91,11 +99,19 @@ export async function resolveSettings(
   for (const [id, mapping] of Object.entries(backend.settings ?? {})) {
     const definition = catalog[id];
     if (!definition) continue;
+    if (!supportedOnThisPlatform(definition)) continue;
 
-    const { flag, invert } = mappingOf(mapping);
+    const { flag, invert, default: overrideDefault } = mappingOf(mapping);
     if (discovered && !discovered.has(flag)) continue;
 
-    settings.push({ id, ...definition, available: true, flag, invert });
+    settings.push({
+      id,
+      ...definition,
+      ...(overrideDefault !== undefined ? { default: overrideDefault } : {}),
+      available: true,
+      flag,
+      invert,
+    });
   }
 
   return { settings, probed: discovered !== null };
@@ -125,6 +141,7 @@ export function buildSettingArgs(
     const definition = catalog[id];
     const mapping = backend.settings?.[id];
     if (!definition || !mapping) continue;
+    if (!supportedOnThisPlatform(definition)) continue;
 
     const { flag, invert } = mappingOf(mapping);
 

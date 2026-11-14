@@ -137,4 +137,8 @@ describe('manifest', () => {
     expect(targets.some((key) => key.includes('vulkan'))).toBe(false);
     expect(targets.some((key) => key.includes('metal') || key.includes('darwin'))).toBe(false);
   });
+
+  it('does not expose removed settings', () => {
+    expect(manifest.settings['smart-expert-reduction']).toBeUndefined();
+  });
 });

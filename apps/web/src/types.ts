@@ -70,6 +70,8 @@ export interface ResolvedSettingInfo {
   max?: number;
   choices?: string[];
   descriptionKey: string;
+  advanced?: boolean;
+  platforms?: string[];
   available: boolean;
 }
 

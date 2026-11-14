@@ -15,6 +15,8 @@ describe('cacheTypeBytes', () => {
     expect(cacheTypeBytes('f16')).toBe(2);
     expect(cacheTypeBytes('f32')).toBe(4);
     expect(cacheTypeBytes('q8_0')).toBeCloseTo(1.0625);
+    expect(cacheTypeBytes('f8_e4m3')).toBe(1);
+    expect(cacheTypeBytes('iq4_nl')).toBeCloseTo(0.5625);
     expect(cacheTypeBytes('unknown')).toBe(2);
   });
 });

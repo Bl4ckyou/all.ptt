@@ -28,6 +28,7 @@ const CACHE_TYPE_BYTES: Record<string, number> = {
   f32: 4,
   f16: 2,
   bf16: 2,
+  f8_e4m3: 1,
   q8_0: 34 / 32,
   q5_1: 24 / 32,
   q5_0: 22 / 32,

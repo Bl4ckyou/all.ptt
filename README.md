@@ -123,12 +123,15 @@ Open the **Manage** tab in the sidebar:
 Model settings are **semantic**: the UI shows "Context size" or "GPU layers", never
 raw flags. Each backend maps them to its own flag, and the supported settings are
 discovered from the installed binary's `--help`. Renamed flags or new versions are
-therefore handled automatically. Settings are saved per model in
-`.ptt/model-configs.json` and applied when the model is launched.
+therefore handled automatically. Settings are split into normal and advanced
+groups, and OS-specific options (for example Linux-only CPU affinity) are hidden
+on other platforms. Settings are saved per model in `.ptt/model-configs.json` and
+applied when the model is launched.
 
 The settings panel also shows a live memory estimate (RAM / VRAM) computed from the
 model's GGUF metadata (layers, embedding size, KV heads), the context size, GPU
-layers and KV cache types.
+layers and KV cache types. It covers model weights and the KV cache, split between
+CPU and GPU; runtime compute buffers are not included.
 
 Extra model folders can be configured in `config.json`:
 
