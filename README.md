@@ -1,4 +1,4 @@
-# PTT
+# all.ptt
 
 A local-first AI frontend where translation is a first-class citizen.
 Runs in the browser, connects to AI backends that you already have, and keeps

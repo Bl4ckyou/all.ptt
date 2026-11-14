@@ -1,4 +1,4 @@
-app-title = PTT
+app-title = all.ptt
 app-tagline = あなたの言語で使えるローカルAI。
 nav-chat = チャット
 sidebar-models = モデル
@@ -215,3 +215,11 @@ conversation-untitled = 無題の会話
 no-projects = プロジェクトなし
 project-context-title = プロジェクトのコンテキスト
 project-context-hint = このテキストは各メッセージのコンテキストとして送信されます。
+feature-chat = チャット
+feature-models = モデル
+feature-backends = バックエンド
+feature-projects = プロジェクト
+feature-i18n = 翻訳
+feature-context = コンテキスト
+feature-speculation = 投機
+feature-local = ローカル

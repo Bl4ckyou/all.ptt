@@ -52,7 +52,23 @@ body {
   color: var(--text);
 }
 
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 160'%3E%3Cpath d='M60 8C96 42 96 108 60 152C24 108 24 42 60 8Z' fill='%23ffc0d9'/%3E%3C/svg%3E")
+      no-repeat -70px 82% / 240px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 160'%3E%3Cpath d='M60 8C96 42 96 108 60 152C24 108 24 42 60 8Z' fill='%23ffd6e6'/%3E%3C/svg%3E")
+      no-repeat 104% 6% / 260px;
+  opacity: 0.3;
+}
+
 #app {
+  position: relative;
+  z-index: 1;
   height: 100vh;
 }
 
@@ -180,6 +196,13 @@ body {
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.02em;
+}
+
+.brand-flower {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 4px 8px rgba(236, 92, 147, 0.25));
 }
 
 .brand-icon {
@@ -329,6 +352,7 @@ select.control {
 }
 
 .chat {
+  position: relative;
   display: grid;
   grid-template-rows: auto 1fr auto;
   height: 100%;
@@ -338,6 +362,25 @@ select.control {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   overflow: hidden;
+}
+
+.chat::before {
+  content: "";
+  position: absolute;
+  top: 20px;
+  right: -40px;
+  z-index: 0;
+  width: 260px;
+  height: 260px;
+  pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cg fill='%23ec5c93'%3E%3Cellipse cx='100' cy='52' rx='15' ry='38'/%3E%3Cellipse cx='100' cy='52' rx='15' ry='38' transform='rotate(45 100 100)'/%3E%3Cellipse cx='100' cy='52' rx='15' ry='38' transform='rotate(90 100 100)'/%3E%3Cellipse cx='100' cy='52' rx='15' ry='38' transform='rotate(135 100 100)'/%3E%3Cellipse cx='100' cy='52' rx='15' ry='38' transform='rotate(180 100 100)'/%3E%3Cellipse cx='100' cy='52' rx='15' ry='38' transform='rotate(225 100 100)'/%3E%3Cellipse cx='100' cy='52' rx='15' ry='38' transform='rotate(270 100 100)'/%3E%3Cellipse cx='100' cy='52' rx='15' ry='38' transform='rotate(315 100 100)'/%3E%3C/g%3E%3Ccircle cx='100' cy='100' r='24' fill='%23ffd166'/%3E%3C/svg%3E")
+    no-repeat center / contain;
+  opacity: 0.065;
+}
+
+.chat > * {
+  position: relative;
+  z-index: 1;
 }
 
 .chat-head {
@@ -374,6 +417,96 @@ select.control {
   gap: 10px;
   color: var(--muted);
   font-size: 15px;
+}
+
+.flower-empty {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.flower-map {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) auto minmax(90px, 1fr);
+  grid-template-rows: auto auto auto;
+  gap: 6px 18px;
+  align-items: center;
+  justify-items: center;
+}
+
+.flower-map-art {
+  grid-area: 2 / 2;
+  width: 220px;
+  height: 220px;
+  filter: drop-shadow(0 18px 30px rgba(236, 92, 147, 0.18));
+  animation: flower-float 7s ease-in-out infinite;
+}
+
+@keyframes flower-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.flower-label {
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-soft);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.flower-label.n {
+  grid-area: 1 / 2;
+}
+
+.flower-label.ne {
+  grid-area: 1 / 3;
+  justify-self: start;
+}
+
+.flower-label.e {
+  grid-area: 2 / 3;
+  justify-self: start;
+}
+
+.flower-label.se {
+  grid-area: 3 / 3;
+  justify-self: start;
+}
+
+.flower-label.s {
+  grid-area: 3 / 2;
+}
+
+.flower-label.sw {
+  grid-area: 3 / 1;
+  justify-self: end;
+}
+
+.flower-label.w {
+  grid-area: 2 / 1;
+  justify-self: end;
+}
+
+.flower-label.nw {
+  grid-area: 1 / 1;
+  justify-self: end;
+}
+
+.empty-text {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .empty .icon {
@@ -1173,5 +1306,20 @@ select.control {
 
   .manage {
     padding: 18px;
+  }
+
+  .flower-map {
+    grid-template-columns: minmax(64px, 1fr) auto minmax(64px, 1fr);
+    gap: 4px 10px;
+  }
+
+  .flower-map-art {
+    width: 168px;
+    height: 168px;
+  }
+
+  .flower-label {
+    padding: 3px 7px;
+    font-size: 10px;
   }
 }

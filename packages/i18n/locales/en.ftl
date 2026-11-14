@@ -1,4 +1,4 @@
-app-title = PTT
+app-title = all.ptt
 app-tagline = Local AI, in your language.
 nav-chat = Chat
 sidebar-models = Models
@@ -215,3 +215,11 @@ conversation-untitled = Untitled conversation
 no-projects = No project
 project-context-title = Project context
 project-context-hint = This text is sent as context with every message.
+feature-chat = Chat
+feature-models = Models
+feature-backends = Backends
+feature-projects = Projects
+feature-i18n = Translations
+feature-context = Context
+feature-speculation = Speculation
+feature-local = Local

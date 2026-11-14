@@ -622,5 +622,5 @@ async function bootstrap(): Promise<void> {
 
 bootstrap().catch((error: unknown) => {
   console.error(error);
-  document.body.textContent = 'PTT failed to start.';
+  document.body.textContent = 'all.ptt failed to start.';
 });

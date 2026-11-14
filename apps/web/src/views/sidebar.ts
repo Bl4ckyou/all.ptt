@@ -1,5 +1,6 @@
 import type { Actions } from '../actions.js';
 import { el, option } from '../dom.js';
+import { flowerSvg } from '../flower.js';
 import { t } from '../i18n.js';
 import { icon, type IconName } from '../icons.js';
 import { state } from '../state.js';
@@ -137,7 +138,7 @@ export function createSidebar(actions: Actions): Sidebar {
 
     body.replaceChildren(
       el('div', { class: 'brand' }, [
-        el('span', { class: 'brand-title' }, [icon('sparkles', 'icon brand-icon'), t('app-title')]),
+        el('span', { class: 'brand-title' }, [flowerSvg('brand-flower'), t('app-title')]),
         el('span', { class: 'brand-tagline', text: t('app-tagline') }),
       ]),
       el('nav', { class: 'nav' }, [

@@ -52,7 +52,7 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(config.port, config.host, () => {
-  console.log(`PTT listening on http://${config.host}:${config.port}`);
+  console.log(`all.ptt listening on http://${config.host}:${config.port}`);
   const webCount = Object.keys(webAssets).length;
   if (webCount === 0) {
     console.log('  web UI: not built — run `npm run build`, or `npm run dev` and open http://127.0.0.1:5173');
