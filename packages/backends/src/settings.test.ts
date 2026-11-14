@@ -59,4 +59,15 @@ describe('buildSettingArgs', () => {
     const ik = manifest.backends['ik-llama-cpp'];
     expect(buildSettingArgs(ik, manifest.settings, { mmap: true })).toEqual([]);
   });
+
+  it('groups CPU affinity under backend-specific flags', () => {
+    expect(
+      buildSettingArgs(manifest.backends['llama-cpp'], manifest.settings, { 'cpu-affinity': '0-7' }),
+    ).toEqual(['--cpu-range', '0-7']);
+    expect(
+      buildSettingArgs(manifest.backends['ik-llama-cpp'], manifest.settings, {
+        'cpu-affinity': '0-7',
+      }),
+    ).toEqual(['--cpu-affinity', '0-7']);
+  });
 });

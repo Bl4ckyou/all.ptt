@@ -48,6 +48,7 @@ export { scanLocalModels } from './models.js';
 export type { LocalModel } from './models.js';
 export { listModelDirectories } from './models.js';
 export { revealPath } from './reveal.js';
+export { readGgufInfo } from './gguf.js';
 export {
   buildSettingArgs,
   discoverFlags,

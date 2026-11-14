@@ -1,4 +1,5 @@
 import { detectLocale } from '@ptt/i18n';
+import type { GgufModelInfo } from '@ptt/core';
 import type { Actions } from './actions.js';
 import {
   getBackendSettings,
@@ -6,6 +7,7 @@ import {
   getLocales,
   getLocalModels,
   getModelConfig,
+  getModelInfo,
   getModels,
   getProviders,
   installBackend,
@@ -147,6 +149,10 @@ async function getModelConfigAction(path: string): Promise<ModelConfigInfo | nul
   return getModelConfig(path);
 }
 
+async function getModelInfoAction(path: string): Promise<GgufModelInfo | null> {
+  return getModelInfo(path);
+}
+
 async function saveModelConfigAction(
   path: string,
   settings: Record<string, SettingValue>,
@@ -261,6 +267,7 @@ const actions: Actions = {
   revealPath: revealPathAction,
   getBackendSettings: getBackendSettingsAction,
   getModelConfig: getModelConfigAction,
+  getModelInfo: getModelInfoAction,
   saveModelConfig: saveModelConfigAction,
   launchModel,
   stopBackend: stopBackendAction,

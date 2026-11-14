@@ -126,6 +126,10 @@ discovered from the installed binary's `--help`. Renamed flags or new versions a
 therefore handled automatically. Settings are saved per model in
 `.ptt/model-configs.json` and applied when the model is launched.
 
+The settings panel also shows a live memory estimate (RAM / VRAM) computed from the
+model's GGUF metadata (layers, embedding size, KV heads), the context size, GPU
+layers and KV cache types.
+
 Extra model folders can be configured in `config.json`:
 
 ```json

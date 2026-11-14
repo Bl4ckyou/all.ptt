@@ -1,6 +1,6 @@
 import { dirname, isAbsolute, sep } from 'node:path';
 import { stat } from 'node:fs/promises';
-import { listModelDirectories, revealPath, scanLocalModels } from '@ptt/backends';
+import { listModelDirectories, readGgufInfo, revealPath, scanLocalModels } from '@ptt/backends';
 import type { AppContext } from '../context.js';
 import { readJson, sendError, sendJson } from '../http.js';
 import type { Handler } from '../router.js';
@@ -12,6 +12,23 @@ export function localModelsRoute(context: AppContext): Handler {
       listModelDirectories(context.modelDirs),
     ]);
     sendJson(res, 200, { models, directories });
+  };
+}
+
+export function modelInfoRoute(_context: AppContext): Handler {
+  return async ({ url, res }) => {
+    const path = url.searchParams.get('path');
+    if (!path || !isAbsolute(path) || !path.toLowerCase().endsWith('.gguf')) {
+      sendError(res, 400, 'error.bad_request');
+      return;
+    }
+
+    try {
+      const info = await readGgufInfo(path);
+      sendJson(res, 200, { info });
+    } catch (error) {
+      sendJson(res, 500, { error: 'error.gguf', message: (error as Error).message });
+    }
   };
 }
 

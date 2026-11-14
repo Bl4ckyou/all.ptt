@@ -1,4 +1,5 @@
 import type { ChatEvent, ChatMessage, ModelInfo } from '@ptt/core';
+import type { GgufModelInfo } from '@ptt/core';
 import type {
   BackendsInfo,
   LocalModelInfo,
@@ -89,6 +90,13 @@ export async function getModelConfig(path: string): Promise<ModelConfigInfo | nu
   if (!response.ok) throw new Error('failed to load model config');
   const body = (await response.json()) as { config: ModelConfigInfo | null };
   return body.config;
+}
+
+export async function getModelInfo(path: string): Promise<GgufModelInfo | null> {
+  const response = await fetch(`/api/models/info?path=${encodeURIComponent(path)}`);
+  if (!response.ok) return null;
+  const body = (await response.json()) as { info: GgufModelInfo };
+  return body.info;
 }
 
 export async function saveModelConfig(

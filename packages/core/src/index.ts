@@ -7,3 +7,5 @@ export type {
   Usage,
 } from './types.js';
 export type { ProviderAdapter, ProviderCapabilities } from './provider.js';
+export type { GgufModelInfo, MemoryEstimate, MemorySettings } from './memory.js';
+export { cacheTypeBytes, estimateMemory } from './memory.js';

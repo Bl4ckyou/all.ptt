@@ -1,3 +1,4 @@
+import { cacheTypeBytes, estimateMemory, type GgufModelInfo } from '@ptt/core';
 import type { Actions } from '../actions.js';
 import { el, option } from '../dom.js';
 import { t } from '../i18n.js';
@@ -19,7 +20,7 @@ export interface Manage {
   update(): void;
 }
 
-function formatSize(bytes: number): string {
+function formatBytes(bytes: number): string {
   const gb = bytes / 1024 ** 3;
   if (gb >= 1) return `${gb.toFixed(1)} GB`;
   return `${(bytes / 1024 ** 2).toFixed(0)} MB`;
@@ -54,9 +55,15 @@ export function createManage(actions: Actions): Manage {
   let configSettings: ResolvedSettingInfo[] = [];
   let configValues: Record<string, SettingValue> = {};
   let configExtra = '';
-  let configLoading = false;
+  let configInfo: GgufModelInfo | null = null;
   let configSaving = false;
   let configError: string | null = null;
+  let configNode: HTMLElement | null = null;
+  let settingsHost: HTMLElement | null = null;
+  let estimateEl: HTMLElement | null = null;
+  let backendSelectEl: HTMLSelectElement | null = null;
+  let extraInputEl: HTMLInputElement | null = null;
+  let saveButtonEl: HTMLButtonElement | null = null;
 
   function button(iconName: IconName, label: string, onClick: () => void, danger = false): HTMLButtonElement {
     return el(
@@ -147,78 +154,28 @@ export function createManage(actions: Actions): Manage {
     ]);
   }
 
-  function defaultValues(
-    settings: ResolvedSettingInfo[],
-    saved: Record<string, SettingValue>,
-  ): Record<string, SettingValue> {
-    const values: Record<string, SettingValue> = { ...saved };
-    for (const setting of settings) {
-      if (!(setting.id in values) && setting.default !== undefined) {
-        values[setting.id] = setting.default;
-      }
-    }
-    return values;
+  function numberValue(value: SettingValue | undefined): number | undefined {
+    return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
   }
 
-  async function loadConfigFor(backendId: string, path: string): Promise<void> {
-    configLoading = true;
-    configError = null;
-    update();
-
-    try {
-      const [settings, config] = await Promise.all([
-        actions.getBackendSettings(backendId),
-        actions.getModelConfig(path),
-      ]);
-      configSettings = settings;
-      configValues = defaultValues(settings, config?.settings ?? {});
-      configExtra = config?.extraArgs ?? '';
-    } catch {
-      configError = 'error-config';
-    }
-
-    configLoading = false;
-    update();
-  }
-
-  async function openConfig(model: LocalModelInfo): Promise<void> {
-    configModel = model;
-    configSettings = [];
-    configValues = {};
-    configExtra = '';
-    configError = null;
-    configLoading = true;
-
-    const backendId =
-      launchBackend ?? installedBackends()[0]?.id ?? null;
-    configBackend = backendId;
-    update();
-
-    if (!backendId) {
-      configLoading = false;
-      configError = 'manage-not-installed';
-      update();
+  function updateEstimate(): void {
+    if (!estimateEl) return;
+    if (!configInfo) {
+      estimateEl.textContent = '';
       return;
     }
 
-    await loadConfigFor(backendId, model.path);
-  }
+    const estimate = estimateMemory(configInfo, {
+      gpuLayers: numberValue(configValues['gpu-layers']),
+      contextSize: numberValue(configValues['context-size']) ?? configInfo.contextLength ?? 0,
+      cacheTypeKBytes: cacheTypeBytes(configValues['cache-type-k']),
+      cacheTypeVBytes: cacheTypeBytes(configValues['cache-type-v']),
+    });
 
-  async function saveConfig(): Promise<void> {
-    if (!configModel || configSaving) return;
-    const path = configModel.path;
-    configSaving = true;
-    update();
-
-    try {
-      await actions.saveModelConfig(path, configValues, configExtra);
-      configModel = null;
-    } catch {
-      configError = 'error-config';
-    }
-
-    configSaving = false;
-    update();
+    estimateEl.textContent = t('manage-memory-estimate', {
+      ram: formatBytes(estimate.ramBytes),
+      vram: formatBytes(estimate.vramBytes),
+    });
   }
 
   function settingControl(setting: ResolvedSettingInfo): HTMLElement {
@@ -231,6 +188,7 @@ export function createManage(actions: Actions): Manage {
         on: {
           change: (event) => {
             configValues[setting.id] = (event.target as HTMLInputElement).checked;
+            updateEstimate();
           },
         },
       });
@@ -238,6 +196,13 @@ export function createManage(actions: Actions): Manage {
     }
 
     if (setting.type === 'enum') {
+      const choices = setting.choices ?? [];
+      const options: HTMLOptionElement[] = [];
+      if (setting.default === undefined) {
+        options.push(option('', '—', current === undefined || current === ''));
+      }
+      for (const choice of choices) options.push(option(choice, choice, choice === current));
+
       return el(
         'select',
         {
@@ -245,10 +210,11 @@ export function createManage(actions: Actions): Manage {
           on: {
             change: (event) => {
               configValues[setting.id] = (event.target as HTMLSelectElement).value;
+              updateEstimate();
             },
           },
         },
-        (setting.choices ?? []).map((choice) => option(choice, choice, choice === current)),
+        options,
       );
     }
 
@@ -268,6 +234,7 @@ export function createManage(actions: Actions): Manage {
           } else {
             configValues[setting.id] = setting.type === 'number' ? Number(raw) : raw;
           }
+          updateEstimate();
         },
       },
     });
@@ -283,82 +250,174 @@ export function createManage(actions: Actions): Manage {
     ]);
   }
 
-  function configModal(): HTMLElement | null {
-    const model = configModel;
-    if (!model) return null;
+  function defaultValues(
+    settings: ResolvedSettingInfo[],
+    saved: Record<string, SettingValue>,
+  ): Record<string, SettingValue> {
+    const values: Record<string, SettingValue> = { ...saved };
+    for (const setting of settings) {
+      if (!(setting.id in values) && setting.default !== undefined) {
+        values[setting.id] = setting.default;
+      }
+    }
+    return values;
+  }
 
-    const installed = installedBackends();
-    const close = (): void => {
-      configModel = null;
-      update();
-    };
+  function renderSettings(): void {
+    if (!settingsHost) return;
+    settingsHost.replaceChildren();
 
-    const backendSelect = el(
+    if (configError) {
+      settingsHost.append(el('p', { class: 'error' }, [icon('x'), t(configError)]));
+    } else if (configSettings.length === 0) {
+      settingsHost.append(el('p', { class: 'manage-line muted', text: t('manage-config-none') }));
+    } else {
+      settingsHost.append(el('div', { class: 'setting-list' }, configSettings.map(settingRow)));
+    }
+
+    settingsHost.classList.remove('fade-in');
+    void settingsHost.offsetWidth;
+    settingsHost.classList.add('fade-in');
+  }
+
+  async function loadConfigBody(): Promise<void> {
+    if (!configModel) return;
+
+    if (!configBackend) {
+      configError = 'manage-not-installed';
+      renderSettings();
+      updateEstimate();
+      return;
+    }
+
+    if (backendSelectEl) backendSelectEl.value = configBackend;
+    configError = null;
+    settingsHost?.replaceChildren(
+      el('p', { class: 'manage-busy' }, [icon('sparkles', 'icon small'), t('status-loading')]),
+    );
+    updateEstimate();
+
+    try {
+      const [settings, config, info] = await Promise.all([
+        actions.getBackendSettings(configBackend),
+        actions.getModelConfig(configModel.path),
+        actions.getModelInfo(configModel.path),
+      ]);
+      configSettings = settings;
+      configValues = defaultValues(settings, config?.settings ?? {});
+      configExtra = config?.extraArgs ?? '';
+      configInfo = info;
+    } catch {
+      configError = 'error-config';
+    }
+
+    if (extraInputEl) extraInputEl.value = configExtra;
+    renderSettings();
+    updateEstimate();
+  }
+
+  function closeConfig(): void {
+    configNode?.remove();
+    configNode = null;
+    configModel = null;
+    settingsHost = null;
+    estimateEl = null;
+    backendSelectEl = null;
+    extraInputEl = null;
+    saveButtonEl = null;
+  }
+
+  function buildConfigModal(model: LocalModelInfo): HTMLElement {
+    settingsHost = el('div', { class: 'settings-host' });
+    estimateEl = el('p', { class: 'memory-estimate' });
+
+    backendSelectEl = el(
       'select',
       {
         class: 'control',
         on: {
           change: (event) => {
-            const id = (event.target as HTMLSelectElement).value;
-            configBackend = id;
-            void loadConfigFor(id, model.path);
+            configBackend = (event.target as HTMLSelectElement).value;
+            void loadConfigBody();
           },
         },
       },
-      installed.map((backend) => option(backend.id, backend.label, backend.id === configBackend)),
+      installedBackends().map((backend) => option(backend.id, backend.label, backend.id === configBackend)),
     );
 
-    const body: Node[] = [
-      el('p', { class: 'manage-line muted', text: model.path }),
-      el('label', { class: 'field' }, [
-        el('span', { class: 'field-label' }, [icon('server', 'icon small'), t('manage-launch-with')]),
-        backendSelect,
-      ]),
-    ];
+    extraInputEl = el('input', {
+      class: 'control',
+      value: configExtra,
+      attrs: { type: 'text', placeholder: t('manage-config-extra-hint') },
+      on: {
+        input: (event) => {
+          configExtra = (event.target as HTMLInputElement).value;
+        },
+      },
+    });
 
-    if (configLoading) {
-      body.push(el('p', { class: 'manage-busy' }, [icon('sparkles', 'icon small'), t('status-loading')]));
-    } else if (configError) {
-      body.push(el('p', { class: 'error' }, [icon('x'), t(configError)]));
-    } else if (configSettings.length === 0) {
-      body.push(el('p', { class: 'manage-line muted', text: t('manage-config-none') }));
-    } else {
-      body.push(el('div', { class: 'setting-list' }, configSettings.map(settingRow)));
+    saveButtonEl = button('check', t('manage-config-save'), () => void saveConfig());
+
+    const modal = el(
+      'div',
+      { class: 'modal', on: { click: (event) => event.stopPropagation() } },
+      [
+        el('div', { class: 'modal-head' }, [
+          el('h3', { class: 'manage-title' }, [icon('model', 'icon small'), t('manage-model-config')]),
+          iconButton('x', t('manage-config-cancel'), closeConfig),
+        ]),
+        el('p', { class: 'modal-title', text: model.name }),
+        estimateEl,
+        el('label', { class: 'field' }, [
+          el('span', { class: 'field-label' }, [icon('server', 'icon small'), t('manage-launch-with')]),
+          backendSelectEl,
+        ]),
+        settingsHost,
+        el('label', { class: 'field' }, [
+          el('span', { class: 'field-label' }, [icon('manage', 'icon small'), t('manage-config-extra')]),
+          extraInputEl,
+        ]),
+        el('div', { class: 'modal-foot' }, [
+          button('x', t('manage-config-cancel'), closeConfig),
+          saveButtonEl,
+        ]),
+      ],
+    );
+
+    return el('div', { class: 'modal-backdrop', on: { click: closeConfig } }, [modal]);
+  }
+
+  async function openConfig(model: LocalModelInfo): Promise<void> {
+    closeConfig();
+    configModel = model;
+    configBackend = launchBackend ?? installedBackends()[0]?.id ?? null;
+    configSettings = [];
+    configValues = {};
+    configExtra = '';
+    configInfo = null;
+    configError = null;
+    configSaving = false;
+
+    configNode = buildConfigModal(model);
+    element.append(configNode);
+    await loadConfigBody();
+  }
+
+  async function saveConfig(): Promise<void> {
+    if (!configModel || configSaving) return;
+    const path = configModel.path;
+    configSaving = true;
+    saveButtonEl?.replaceChildren(icon('sparkles'), t('status-loading'));
+
+    try {
+      await actions.saveModelConfig(path, configValues, configExtra);
+      closeConfig();
+    } catch {
+      configError = 'error-config';
+      configSaving = false;
+      saveButtonEl?.replaceChildren(icon('check'), t('manage-config-save'));
+      renderSettings();
     }
-
-    body.push(
-      el('label', { class: 'field' }, [
-        el('span', { class: 'field-label' }, [icon('manage', 'icon small'), t('manage-config-extra')]),
-        el('input', {
-          class: 'control',
-          value: configExtra,
-          attrs: { type: 'text', placeholder: t('manage-config-extra-hint') },
-          on: {
-            input: (event) => {
-              configExtra = (event.target as HTMLInputElement).value;
-            },
-          },
-        }),
-      ]),
-    );
-
-    const modal = el('div', {
-      class: 'modal',
-      on: { click: (event) => event.stopPropagation() },
-    }, [
-      el('div', { class: 'modal-head' }, [
-        el('h3', { class: 'manage-title' }, [icon('model', 'icon small'), t('manage-model-config')]),
-        iconButton('x', t('manage-config-cancel'), close),
-      ]),
-      el('p', { class: 'modal-title', text: model.name }),
-      ...body,
-      el('div', { class: 'modal-foot' }, [
-        button('x', t('manage-config-cancel'), close),
-        button('check', configSaving ? t('status-loading') : t('manage-config-save'), () => void saveConfig()),
-      ]),
-    ]);
-
-    return el('div', { class: 'modal-backdrop', on: { click: close } }, [modal]);
   }
 
   function modelCard(model: LocalModelInfo): HTMLElement {
@@ -383,7 +442,7 @@ export function createManage(actions: Actions): Manage {
           iconButton('folderOpen', t('manage-open-folder'), () => void actions.revealPath(model.path)),
         ]),
       ]),
-      el('span', { class: 'manage-line muted', text: formatSize(model.size) }),
+      el('span', { class: 'manage-line muted', text: formatBytes(model.size) }),
       button('play', t('manage-launch'), () => {
         if (launchBackend) void actions.launchModel(model, launchBackend);
       }),
@@ -568,9 +627,7 @@ export function createManage(actions: Actions): Manage {
     nodes.push(runningCard());
 
     element.replaceChildren(...nodes);
-
-    const modal = configModal();
-    if (modal) element.append(modal);
+    if (configNode) element.append(configNode);
 
     if (restoring) {
       const input = element.querySelector<HTMLInputElement>('.model-search');
