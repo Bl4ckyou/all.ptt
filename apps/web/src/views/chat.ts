@@ -11,10 +11,13 @@ export interface Chat {
 
 export function createChat(actions: Actions): Chat {
   const messagesEl = el('div', { class: 'messages' });
+  const headModel = el('span', { class: 'chat-head-model' });
+  const headProvider = el('span', { class: 'chat-head-provider' });
+  const header = el('header', { class: 'chat-head' }, [headModel, headProvider]);
   const input = el('textarea', { class: 'composer-input', attrs: { rows: '3' } });
   const button = el('button', { class: 'composer-send', attrs: { type: 'submit' } });
   const form = el('form', { class: 'composer' }, [input, button]);
-  const element = el('main', { class: 'chat' }, [messagesEl, form]);
+  const element = el('main', { class: 'chat' }, [header, messagesEl, form]);
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -60,6 +63,10 @@ export function createChat(actions: Actions): Chat {
   }
 
   function update(): void {
+    const selected = state.models.find((model) => model.id === state.model) ?? null;
+    headModel.textContent = selected?.label ?? state.model ?? t('chat-model-none');
+    headProvider.textContent = selected?.provider ?? state.providerId ?? '';
+
     input.placeholder = t('chat-placeholder');
     const streaming = state.streaming;
     button.replaceChildren(

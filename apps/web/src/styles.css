@@ -245,7 +245,7 @@ select.control {
 
 .chat {
   display: grid;
-  grid-template-rows: 1fr auto;
+  grid-template-rows: auto 1fr auto;
   height: 100%;
   min-width: 0;
   background: var(--panel);
@@ -253,6 +253,25 @@ select.control {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   overflow: hidden;
+}
+
+.chat-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 244, 248, 0.6);
+}
+
+.chat-head-model {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.chat-head-provider {
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .messages {
@@ -713,6 +732,34 @@ select.control {
   gap: 4px;
   max-height: 150px;
   overflow-y: auto;
+}
+
+.file-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.file-tab {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.file-tab:hover {
+  border-color: var(--border-strong);
+}
+
+.file-tab.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .file-option {

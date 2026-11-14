@@ -3,6 +3,7 @@ import type { Actions } from '../actions.js';
 import { el, option } from '../dom.js';
 import { t } from '../i18n.js';
 import { icon, type IconName } from '../icons.js';
+import { draftCategory, modelMatchScore } from '../matching.js';
 import { state } from '../state.js';
 import type {
   BackendInfo,
@@ -110,36 +111,6 @@ export function createManage(actions: Actions): Manage {
     return true;
   }
 
-  function repositoryKey(path: string): string {
-    const index = path.indexOf('/snapshots/');
-    return index >= 0 ? path.slice(0, index) : path.slice(0, Math.max(path.lastIndexOf('/'), 0));
-  }
-
-  function nameTokens(name: string): Set<string> {
-    const ignored = new Set(['gguf', 'model', 'models', 'mmproj', 'mtp', 'instruct']);
-    return new Set(
-      name
-        .toLowerCase()
-        .split(/[^a-z0-9]+/)
-        .filter((token) => token.length > 2 && !ignored.has(token)),
-    );
-  }
-
-  function mmprojScore(file: LocalModelInfo, model: LocalModelInfo | null): number {
-    if (!model) return 0;
-    let score = 0;
-    if (repositoryKey(file.path) === repositoryKey(model.path)) score += 100;
-    const modelTokens = nameTokens(model.name);
-    for (const token of nameTokens(file.name)) {
-      if (modelTokens.has(token)) score += 10;
-    }
-    return score;
-  }
-
-  function draftPriority(name: string): number {
-    return /(^|[-_.])(assistant|draft|mtp|dflash|dspark|eagle)/i.test(name) ? 0 : 1;
-  }
-
   function shortPath(path: string): string {
     return path.split(/[/\\]/).slice(-2).join('/');
   }
@@ -237,6 +208,21 @@ export function createManage(actions: Actions): Manage {
           ? state.auxiliary.filter((file) => file.kind === 'mtp')
           : state.localModels;
 
+    // Only keep files that actually relate to the selected model.
+    const relevant = candidates
+      .map((file) => ({ file, score: modelMatchScore(file, configModel) }))
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score || a.file.name.localeCompare(b.file.name))
+      .map((entry) => entry.file);
+
+    const categories =
+      setting.fileKind === 'model'
+        ? (['assistant', 'dflash', 'dspark', 'mtp', 'other'] as const).filter((category) =>
+            relevant.some((file) => draftCategory(file.name) === category),
+          )
+        : [];
+    let activeCategory: string = 'all';
+
     const input = el('input', {
       class: 'control file-value',
       value: current === undefined ? '' : String(current),
@@ -251,43 +237,60 @@ export function createManage(actions: Actions): Manage {
       },
     });
 
+    const tabs = el('div', { class: 'file-tabs' });
     const suggestions = el('div', { class: 'file-suggestions' });
 
-    function ranked(term: string): LocalModelInfo[] {
-      const pool = candidates.map((file) => ({
-        file,
-        score:
-          setting.fileKind === 'mmproj'
-            ? mmprojScore(file, configModel)
-            : setting.fileKind === 'model'
-              ? 1 - draftPriority(file.name)
-              : 0,
-      }));
-
-      let list = pool;
-      if (setting.fileKind === 'mmproj' && term.length === 0) {
-        const matched = pool.filter((entry) => entry.score > 0);
-        if (matched.length > 0) list = matched;
+    function renderTabs(): void {
+      if (categories.length < 2) {
+        tabs.replaceChildren();
+        return;
       }
-      if (term.length > 0) {
-        list = pool.filter(
-          (entry) =>
-            entry.file.name.toLowerCase().includes(term) ||
-            entry.file.path.toLowerCase().includes(term),
+
+      const makeTab = (value: string, label: string): HTMLButtonElement =>
+        el(
+          'button',
+          {
+            class: `file-tab${activeCategory === value ? ' active' : ''}`,
+            attrs: { type: 'button' },
+            on: {
+              click: () => {
+                activeCategory = value;
+                renderTabs();
+                refresh();
+              },
+            },
+          },
+          [label],
         );
-      }
 
-      list.sort((a, b) => b.score - a.score || a.file.name.localeCompare(b.file.name));
-      return list.map((entry) => entry.file);
+      tabs.replaceChildren(
+        makeTab('all', t('file-category-all')),
+        ...categories.map((category) => makeTab(category, t(`file-category-${category}`))),
+      );
     }
 
     function refresh(): void {
       const term = input.value.trim().toLowerCase();
-      const items = ranked(term).slice(0, 30);
+      let pool = relevant;
+
+      if (activeCategory !== 'all') {
+        pool = pool.filter((file) => draftCategory(file.name) === activeCategory);
+      }
+      if (term.length > 0) {
+        pool = pool.filter(
+          (file) =>
+            file.name.toLowerCase().includes(term) || file.path.toLowerCase().includes(term),
+        );
+      }
+
+      const items = pool.slice(0, 30);
 
       if (items.length === 0) {
         suggestions.replaceChildren(
-          el('p', { class: 'manage-line muted', text: t('manage-no-results') }),
+          el('p', {
+            class: 'manage-line muted',
+            text: relevant.length === 0 ? t('manage-no-matching-file') : t('manage-no-results'),
+          }),
         );
         return;
       }
@@ -322,12 +325,14 @@ export function createManage(actions: Actions): Manage {
       refresh();
     });
 
+    renderTabs();
     refresh();
 
-    return el('div', { class: 'file-picker' }, [
-      el('div', { class: 'file-picker-row' }, [input, clear]),
-      suggestions,
-    ]);
+    const nodes: Node[] = [el('div', { class: 'file-picker-row' }, [input, clear])];
+    if (categories.length >= 2) nodes.push(tabs);
+    nodes.push(suggestions);
+
+    return el('div', { class: 'file-picker' }, nodes);
   }
 
   function settingControl(setting: ResolvedSettingInfo): HTMLElement {
@@ -524,7 +529,7 @@ export function createManage(actions: Actions): Manage {
       if (configValues.mmproj === undefined) {
         const ranked = state.auxiliary
           .filter((file) => file.kind === 'mmproj')
-          .map((file) => ({ file, score: mmprojScore(file, model) }))
+          .map((file) => ({ file, score: modelMatchScore(file, model) }))
           .filter((entry) => entry.score > 0)
           .sort((a, b) => b.score - a.score);
 
