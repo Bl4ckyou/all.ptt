@@ -61,6 +61,7 @@ export interface SettingMappingObject {
   compose?: string;
   key?: string;
   stage?: boolean;
+  stageId?: string;
 }
 
 export type SettingMapping = string | SettingMappingObject;

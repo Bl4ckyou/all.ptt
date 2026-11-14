@@ -54,6 +54,7 @@ function buildGguf(): Buffer {
     entry('llama.attention.head_count_kv', 9, Buffer.concat([u32(4), u64(1), u32(8)])),
     entry('llama.context_length', 4, u32(8192)),
     entry('llama.vocab_size', 4, u32(32000)),
+    entry('llama.mtp_head', 4, u32(1)),
     entry('tokenizer.ggml.tokens', 9, tokens),
   ];
 
@@ -112,6 +113,7 @@ describe('readGgufSignature', () => {
     expect(signature.blockCount).toBe(32);
     expect(signature.embeddingLength).toBe(4096);
     expect(signature.contextLength).toBe(8192);
+    expect(signature.hasMtp).toBe(true);
   });
 });
 
@@ -125,6 +127,7 @@ describe('classifyGguf', () => {
     blockCount: null,
     embeddingLength: null,
     contextLength: null,
+    hasMtp: false,
     ...partial,
   });
 

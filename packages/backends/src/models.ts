@@ -15,6 +15,7 @@ export interface LocalModel {
   blockCount?: number | null;
   embeddingLength?: number | null;
   contextLength?: number | null;
+  hasMtp?: boolean;
 }
 
 export interface AuxiliaryFile extends LocalModel {
@@ -114,6 +115,7 @@ async function collect(
         blockCount: signature?.blockCount ?? null,
         embeddingLength: signature?.embeddingLength ?? null,
         contextLength: signature?.contextLength ?? null,
+        hasMtp: signature?.hasMtp ?? false,
         ...(kind === 'draft' ? { category: classification.category } : {}),
       });
     } catch {

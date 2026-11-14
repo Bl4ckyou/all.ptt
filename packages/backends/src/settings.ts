@@ -83,6 +83,7 @@ function mappingOf(mapping: SettingMapping): {
   compose?: string;
   key?: string;
   stage?: boolean;
+  stageId?: string;
 } {
   return typeof mapping === 'string' ? { flag: mapping } : mapping;
 }
@@ -155,25 +156,43 @@ export function buildSettingArgs(
   extraArgs = '',
 ): string[] {
   const args: string[] = [];
-  const composed = new Map<string, { flag: string; stage: string; params: string[] }>();
+  const composed = new Map<
+    string,
+    {
+      flag: string;
+      order: string[];
+      stages: Map<string, { value: string; params: string[] }>;
+    }
+  >();
 
-  for (const [id, value] of Object.entries(values)) {
+  for (const [id, mapping] of Object.entries(backend.settings ?? {})) {
+    const value = values[id];
+    if (value === undefined) continue;
+
     const definition = catalog[id];
-    const mapping = backend.settings?.[id];
-    if (!definition || !mapping) continue;
+    if (!definition) continue;
     if (!supportedOnThisPlatform(definition)) continue;
     if (!dependencySatisfied(definition, values)) continue;
 
     const override = mappingOf(mapping);
 
     if (override.compose) {
-      const group = composed.get(override.compose) ?? { flag: '', stage: '', params: [] };
+      const group = composed.get(override.compose) ?? {
+        flag: '',
+        order: [],
+        stages: new Map<string, { value: string; params: string[] }>(),
+      };
       if (override.flag) group.flag = override.flag;
+
       if (override.stage) {
-        group.stage = value === undefined ? '' : String(value);
+        group.stages.set(id, { value: String(value), params: [] });
+        if (!group.order.includes(id)) group.order.push(id);
       } else if (override.key && value !== '' && value !== undefined) {
-        group.params.push(`${override.key}=${String(value)}`);
+        const stageId = override.stageId ?? group.order[group.order.length - 1];
+        const stage = stageId ? group.stages.get(stageId) : undefined;
+        if (stage) stage.params.push(`${override.key}=${String(value)}`);
       }
+
       composed.set(override.compose, group);
       continue;
     }
@@ -193,11 +212,15 @@ export function buildSettingArgs(
   }
 
   for (const group of composed.values()) {
-    if (!group.flag || group.stage === '' || group.stage === 'none') continue;
-    args.push(
-      group.flag,
-      group.params.length > 0 ? `${group.stage}:${group.params.join(',')}` : group.stage,
-    );
+    const parts: string[] = [];
+    for (const id of group.order) {
+      const stage = group.stages.get(id);
+      if (!stage || stage.value === '' || stage.value === 'none') continue;
+      parts.push(
+        stage.params.length > 0 ? `${stage.value}:${stage.params.join(',')}` : stage.value,
+      );
+    }
+    if (group.flag && parts.length > 0) args.push(group.flag, parts.join(','));
   }
 
   return [...args, ...parseExtraArgs(extraArgs)];

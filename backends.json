@@ -49,16 +49,17 @@
     "image-max-tokens": { "type": "number", "category": "multimodal", "min": 0, "advanced": true, "descriptionKey": "setting-image-max-tokens-desc" },
     "mtp-requantize": { "type": "enum", "category": "mtp", "choices": ["f32", "f16", "bf16", "f8_e4m3", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1"], "advanced": true, "descriptionKey": "setting-mtp-requantize-desc" },
     "spec-type": { "type": "enum", "category": "speculative", "descriptionKey": "setting-spec-type-desc" },
+    "spec-type-secondary": { "type": "enum", "category": "speculative", "descriptionKey": "setting-spec-type-secondary-desc" },
     "spec-n-max": { "type": "number", "category": "speculative", "min": 0, "advanced": true, "dependsOn": { "setting": "spec-type" }, "descriptionKey": "setting-spec-n-max-desc" },
     "spec-n-min": { "type": "number", "category": "speculative", "min": 0, "advanced": true, "dependsOn": { "setting": "spec-type" }, "descriptionKey": "setting-spec-n-min-desc" },
     "spec-p-min": { "type": "number", "category": "speculative", "min": 0, "max": 1, "advanced": true, "dependsOn": { "setting": "spec-type" }, "descriptionKey": "setting-spec-p-min-desc" },
     "spec-heads": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type", "values": ["mtp"] }, "descriptionKey": "setting-spec-heads-desc" },
-    "spec-ngram-size-n": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type", "includes": "ngram" }, "descriptionKey": "setting-spec-ngram-size-n-desc" },
-    "spec-ngram-size-m": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type", "includes": "ngram" }, "descriptionKey": "setting-spec-ngram-size-m-desc" },
-    "spec-ngram-min-hits": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type", "includes": "ngram" }, "descriptionKey": "setting-spec-ngram-min-hits-desc" },
-    "spec-suffix-min-match-len": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type", "values": ["suffix"] }, "descriptionKey": "setting-spec-suffix-min-match-len-desc" },
-    "spec-suffix-max-depth": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type", "values": ["suffix"] }, "descriptionKey": "setting-spec-suffix-max-depth-desc" },
-    "spec-suffix-corpus": { "type": "string", "category": "speculative", "advanced": true, "dependsOn": { "setting": "spec-type", "values": ["suffix"] }, "descriptionKey": "setting-spec-suffix-corpus-desc" }
+    "spec-ngram-size-n": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "includes": "ngram" }, "descriptionKey": "setting-spec-ngram-size-n-desc" },
+    "spec-ngram-size-m": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "includes": "ngram" }, "descriptionKey": "setting-spec-ngram-size-m-desc" },
+    "spec-ngram-min-hits": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "includes": "ngram" }, "descriptionKey": "setting-spec-ngram-min-hits-desc" },
+    "spec-suffix-min-match-len": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "values": ["suffix"] }, "descriptionKey": "setting-spec-suffix-min-match-len-desc" },
+    "spec-suffix-max-depth": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "values": ["suffix"] }, "descriptionKey": "setting-spec-suffix-max-depth-desc" },
+    "spec-suffix-corpus": { "type": "string", "category": "speculative", "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "values": ["suffix"] }, "descriptionKey": "setting-spec-suffix-corpus-desc" }
   },
   "backends": {
     "llama-cpp": {
@@ -114,6 +115,8 @@
         "image-max-tokens": "--image-max-tokens",
         "spec-type": {
           "flag": "--spec-type",
+          "compose": "spec",
+          "stage": true,
           "choices": [
             "none",
             "draft-simple",
@@ -122,13 +125,14 @@
             "draft-dflash",
             "draft-dspark",
             "draft-dflash2",
-            "draft-lilicorr",
-            "ngram-simple",
-            "ngram-map-k",
-            "ngram-map-k4v",
-            "ngram-mod",
-            "ngram-cache"
+            "draft-lilicorr"
           ]
+        },
+        "spec-type-secondary": {
+          "flag": "--spec-type",
+          "compose": "spec",
+          "stage": true,
+          "choices": ["none", "ngram-simple", "ngram-map-k", "ngram-map-k4v", "ngram-mod", "ngram-cache"]
         },
         "spec-n-max": "--spec-draft-n-max",
         "spec-n-min": "--spec-draft-n-min",
@@ -218,12 +222,14 @@
           "flag": "--spec-type",
           "compose": "spec",
           "stage": true,
+          "choices": ["none", "draft", "dflash", "dspark", "mtp"]
+        },
+        "spec-type-secondary": {
+          "flag": "--spec-type",
+          "compose": "spec",
+          "stage": true,
           "choices": [
             "none",
-            "draft",
-            "dflash",
-            "dspark",
-            "mtp",
             "ngram-cache",
             "ngram-simple",
             "ngram-map-k",
@@ -232,16 +238,16 @@
             "suffix"
           ]
         },
-        "spec-n-max": { "compose": "spec", "key": "n_max" },
-        "spec-n-min": { "compose": "spec", "key": "n_min" },
-        "spec-p-min": { "compose": "spec", "key": "p_min" },
-        "spec-heads": { "compose": "spec", "key": "heads" },
-        "spec-ngram-size-n": { "compose": "spec", "key": "ngram_size_n" },
-        "spec-ngram-size-m": { "compose": "spec", "key": "ngram_size_m" },
-        "spec-ngram-min-hits": { "compose": "spec", "key": "ngram_min_hits" },
-        "spec-suffix-min-match-len": { "compose": "spec", "key": "suffix_min_match_len" },
-        "spec-suffix-max-depth": { "compose": "spec", "key": "suffix_max_depth" },
-        "spec-suffix-corpus": { "compose": "spec", "key": "suffix_corpus" }
+        "spec-n-max": { "compose": "spec", "key": "n_max", "stageId": "spec-type" },
+        "spec-n-min": { "compose": "spec", "key": "n_min", "stageId": "spec-type" },
+        "spec-p-min": { "compose": "spec", "key": "p_min", "stageId": "spec-type" },
+        "spec-heads": { "compose": "spec", "key": "heads", "stageId": "spec-type" },
+        "spec-ngram-size-n": { "compose": "spec", "key": "ngram_size_n", "stageId": "spec-type-secondary" },
+        "spec-ngram-size-m": { "compose": "spec", "key": "ngram_size_m", "stageId": "spec-type-secondary" },
+        "spec-ngram-min-hits": { "compose": "spec", "key": "ngram_min_hits", "stageId": "spec-type-secondary" },
+        "spec-suffix-min-match-len": { "compose": "spec", "key": "suffix_min_match_len", "stageId": "spec-type-secondary" },
+        "spec-suffix-max-depth": { "compose": "spec", "key": "suffix_max_depth", "stageId": "spec-type-secondary" },
+        "spec-suffix-corpus": { "compose": "spec", "key": "suffix_corpus", "stageId": "spec-type-secondary" }
       },
       "selection": [
         {

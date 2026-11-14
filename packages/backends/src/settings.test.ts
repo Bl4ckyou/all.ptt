@@ -37,10 +37,10 @@ describe('buildSettingArgs', () => {
       '4096',
       '--n-gpu-layers',
       '20',
-      '--flash-attn',
-      'on',
       '--parallel',
       '2',
+      '--flash-attn',
+      'on',
       '--foo',
     ]);
   });
@@ -130,7 +130,7 @@ describe('buildSettingArgs', () => {
   it('composes ik spec-type parameters into a single argument', () => {
     expect(
       buildSettingArgs(manifest.backends['ik-llama-cpp'], manifest.settings, {
-        'spec-type': 'ngram-map-k',
+        'spec-type-secondary': 'ngram-map-k',
         'spec-ngram-size-n': 8,
         'spec-ngram-size-m': 4,
         'spec-ngram-min-hits': 2,
@@ -138,13 +138,24 @@ describe('buildSettingArgs', () => {
     ).toEqual(['--spec-type', 'ngram-map-k:ngram_size_n=8,ngram_size_m=4,ngram_min_hits=2']);
   });
 
+  it('combines a file stage with a file-less stage on ik', () => {
+    expect(
+      buildSettingArgs(manifest.backends['ik-llama-cpp'], manifest.settings, {
+        'spec-type': 'mtp',
+        'spec-n-max': 4,
+        'spec-type-secondary': 'ngram-map-k',
+        'spec-ngram-size-n': 8,
+      }),
+    ).toEqual(['--spec-type', 'mtp:n_max=4,ngram-map-k:ngram_size_n=8']);
+  });
+
   it('skips dependent spec parameters when the type does not match', () => {
     expect(
       buildSettingArgs(manifest.backends['ik-llama-cpp'], manifest.settings, {
-        'spec-type': 'ngram-map-k',
+        'spec-type': 'mtp',
         'spec-suffix-max-depth': 10,
       }),
-    ).toEqual(['--spec-type', 'ngram-map-k']);
+    ).toEqual(['--spec-type', 'mtp']);
     expect(
       buildSettingArgs(manifest.backends['ik-llama-cpp'], manifest.settings, {
         'spec-type': 'none',
@@ -153,12 +164,13 @@ describe('buildSettingArgs', () => {
     ).toEqual([]);
   });
 
-  it('maps llama spec flags separately', () => {
+  it('maps llama spec flags separately and joins stages', () => {
     expect(
       buildSettingArgs(manifest.backends['llama-cpp'], manifest.settings, {
-        'spec-type': 'ngram-map-k',
+        'spec-type': 'draft-mtp',
+        'spec-type-secondary': 'ngram-map-k',
         'spec-ngram-size-n': 8,
       }),
-    ).toEqual(['--spec-type', 'ngram-map-k', '--spec-ngram-size-n', '8']);
+    ).toEqual(['--spec-ngram-size-n', '8', '--spec-type', 'draft-mtp,ngram-map-k']);
   });
 });

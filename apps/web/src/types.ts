@@ -70,6 +70,7 @@ export interface LocalModelInfo {
   blockCount?: number | null;
   embeddingLength?: number | null;
   contextLength?: number | null;
+  hasMtp?: boolean;
 }
 
 export interface AuxiliaryFile extends LocalModelInfo {

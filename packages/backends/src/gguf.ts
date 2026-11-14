@@ -210,6 +210,7 @@ export interface GgufSignature {
   blockCount: number | null;
   embeddingLength: number | null;
   contextLength: number | null;
+  hasMtp: boolean;
 }
 
 export interface GgufClassification {
@@ -230,6 +231,7 @@ function parseSignature(buffer: Buffer): GgufSignature {
     blockCount: null,
     embeddingLength: null,
     contextLength: null,
+    hasMtp: false,
   };
 
   let position = 0;
@@ -325,6 +327,7 @@ function parseSignature(buffer: Buffer): GgufSignature {
     for (let index = 0; index < kvCount; index++) {
       const key = text();
       const type = u32();
+      if (/mtp/i.test(key)) signature.hasMtp = true;
 
       if (key === 'general.architecture' && type === 8) signature.architecture = text();
       else if (key === 'general.type' && type === 8) signature.generalType = text();
@@ -346,6 +349,20 @@ function parseSignature(buffer: Buffer): GgufSignature {
     }
   } catch {
     // truncated buffer: keep whatever was parsed
+  }
+
+  const metadataText = [
+    signature.architecture,
+    signature.name,
+    signature.basename,
+    ...signature.tags,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  if (/(^|[^a-z0-9])(mtp|assistant)([^a-z0-9]|$)/.test(metadataText)) {
+    signature.hasMtp = true;
   }
 
   return signature;

@@ -58,6 +58,7 @@ export function createManage(actions: Actions): Manage {
   let configExtra = '';
   let configInfo: GgufModelInfo | null = null;
   let configSpecTypes: Record<string, string> = {};
+  let configAvailableSpecTypes = new Set<string>();
   let configSaving = false;
   let configError: string | null = null;
   let configNode: HTMLElement | null = null;
@@ -406,7 +407,19 @@ export function createManage(actions: Actions): Manage {
     }
 
     if (setting.type === 'enum') {
-      const choices = setting.choices ?? [];
+      let choices = setting.choices ?? [];
+      if (setting.id === 'spec-type' && configAvailableSpecTypes.size > 0) {
+        choices = choices.filter((choice) => configAvailableSpecTypes.has(choice));
+        if (
+          typeof current === 'string' &&
+          current !== '' &&
+          current !== 'none' &&
+          !choices.includes(current)
+        ) {
+          choices = [current, ...choices];
+        }
+      }
+
       const options: HTMLOptionElement[] = [];
       if (setting.default === undefined) {
         options.push(option('', '—', current === undefined || current === ''));
@@ -581,6 +594,22 @@ export function createManage(actions: Actions): Manage {
       configExtra = config?.extraArgs ?? '';
       configInfo = info;
 
+      const availableSpecTypes = new Set<string>();
+      for (const file of [...state.drafts, ...state.localModels]) {
+        if (draftMatchScore(file, model) <= 0) continue;
+        const category = file.category ?? draftCategory(file.name);
+        const specType = configSpecTypes[category];
+        if (specType) availableSpecTypes.add(specType);
+      }
+      if (model.hasMtp) {
+        const mtpType = configSpecTypes.mtp;
+        if (mtpType) availableSpecTypes.add(mtpType);
+      }
+      availableSpecTypes.add('none');
+      const savedType = config?.settings?.['spec-type'];
+      if (typeof savedType === 'string') availableSpecTypes.add(savedType);
+      configAvailableSpecTypes = availableSpecTypes;
+
       if (configValues.mmproj === undefined) {
         const ranked = state.auxiliary
           .filter((file) => file.kind === 'mmproj')
@@ -692,6 +721,7 @@ export function createManage(actions: Actions): Manage {
     configExtra = '';
     configInfo = null;
     configSpecTypes = {};
+    configAvailableSpecTypes = new Set<string>();
     configError = null;
     configSaving = false;
 

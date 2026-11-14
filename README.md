@@ -131,7 +131,9 @@ ranked by the model's repository and name so the relevant projectors come first.
 Speculative decoding supports file-less types (n-gram, suffix, MTP) with parameters
 that appear only for the selected type. Selecting a draft file also sets the matching
 speculative type automatically (for example MTP becomes `draft-mtp` on llama.cpp and
-`mtp` on ik_llama.cpp), and categories unsupported by the current backend are hidden.
+`mtp` on ik_llama.cpp). Available types are filtered per model: only types backed by
+a matching file, or by MTP metadata built into the model, are offered. A second
+file-less stage lets you combine a draft/MTP stage with n-gram or suffix decoding.
 GGUF files are classified from their metadata (`general.architecture`, `general.type`,
 `general.tags`), so renamed MTP/assistant/eagle3/lilicorr/mmproj files are still
 detected correctly. Draft matching also compares the base architecture and context
