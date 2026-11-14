@@ -36,7 +36,12 @@ export { extractArchive } from './archive.js';
 export { findBinary, makeExecutable } from './find-binary.js';
 export { loadManifest } from './manifest.js';
 export { formatBytes, splitList, syncBackend } from './install.js';
-export type { SyncOptions } from './install.js';
+export type {
+  DownloadControl,
+  SyncPhase,
+  SyncProgress,
+  SyncOptions,
+} from './install.js';
 export {
   backendDir,
   installedStatePath,

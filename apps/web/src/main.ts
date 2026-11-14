@@ -10,28 +10,37 @@ import {
   getModelInfo,
   getModels,
   getProviders,
-  installBackend,
+  getJob,
+  cancelJob as cancelJobRequest,
   launchBackend,
+  pauseJob as pauseJobRequest,
+  resumeJob as resumeJobRequest,
+  restartProject as restartProjectRequest,
   revealPath as revealPathRequest,
   saveModelConfig,
+  startInstall,
+  startUpdate,
   stopBackend,
   streamChat,
-  updateBackends,
+  updateProject as updateProjectRequest,
 } from './api.js';
 import { el } from './dom.js';
 import { loadI18n, readStoredLocale, storeLocale } from './i18n.js';
 import { notify, state, subscribe } from './state.js';
 import type {
   BackendSettingsInfo,
+  JobInfo,
   LocalModelInfo,
   ModelConfigInfo,
   SettingValue,
 } from './types.js';
 import { createChat } from './views/chat.js';
+import { createJobBar } from './views/job-bar.js';
 import { createManage } from './views/manage.js';
 import { createSidebar } from './views/sidebar.js';
 
 let activeRequest: AbortController | null = null;
+let jobTimer: number | null = null;
 
 async function refreshModels(): Promise<void> {
   try {
@@ -92,30 +101,135 @@ function setView(view: 'chat' | 'manage'): void {
   notify();
 }
 
+function stopJobPolling(): void {
+  if (jobTimer !== null) {
+    window.clearInterval(jobTimer);
+    jobTimer = null;
+  }
+}
+
+function watchJob(job: JobInfo): void {
+  stopJobPolling();
+  state.job = job;
+  notify();
+
+  const tick = async (): Promise<void> => {
+    let current: JobInfo;
+    try {
+      current = await getJob(job.id);
+    } catch {
+      return;
+    }
+
+    state.job = current;
+    notify();
+
+    if (
+      current.status === 'done' ||
+      current.status === 'error' ||
+      current.status === 'cancelled'
+    ) {
+      stopJobPolling();
+      await refreshBackends();
+      const finishedId = current.id;
+      setTimeout(() => {
+        if (state.job?.id === finishedId) {
+          state.job = null;
+          notify();
+        }
+      }, 4000);
+    }
+  };
+
+  jobTimer = window.setInterval(() => void tick(), 500);
+  void tick();
+}
+
+function jobActive(): boolean {
+  return !!state.job && (state.job.status === 'running' || state.job.status === 'paused');
+}
+
 async function installBackendAction(id: string, variant: string): Promise<void> {
-  state.busy = 'status-installing';
+  if (jobActive()) return;
   state.error = null;
   notify();
   try {
-    await installBackend(id, variant);
+    const job = await startInstall(id, variant);
+    watchJob(job);
   } catch {
     state.error = 'error-backend';
+    notify();
   }
-  state.busy = null;
-  await refreshBackends();
 }
 
 async function updateBackendsAction(): Promise<void> {
-  state.busy = 'status-installing';
+  if (jobActive()) return;
   state.error = null;
   notify();
   try {
-    await updateBackends();
+    const job = await startUpdate();
+    watchJob(job);
   } catch {
     state.error = 'error-backend';
+    notify();
   }
+}
+
+async function pauseJobAction(): Promise<void> {
+  if (!state.job) return;
+  try {
+    state.job = await pauseJobRequest(state.job.id);
+    notify();
+  } catch {
+    // keep the current state
+  }
+}
+
+async function resumeJobAction(): Promise<void> {
+  if (!state.job) return;
+  try {
+    state.job = await resumeJobRequest(state.job.id);
+    notify();
+  } catch {
+    // keep the current state
+  }
+}
+
+async function cancelJobAction(): Promise<void> {
+  if (!state.job) return;
+  try {
+    state.job = await cancelJobRequest(state.job.id);
+    notify();
+  } catch {
+    // keep the current state
+  }
+}
+
+async function updateProjectAction(): Promise<void> {
+  state.busy = 'status-updating';
+  state.error = null;
+  state.updateReady = false;
+  notify();
+
+  try {
+    await updateProjectRequest();
+    state.updateReady = true;
+  } catch {
+    state.error = 'error-update';
+  }
+
   state.busy = null;
-  await refreshBackends();
+  notify();
+}
+
+async function restartProjectAction(): Promise<void> {
+  try {
+    await restartProjectRequest();
+    setTimeout(() => window.location.reload(), 1500);
+  } catch {
+    state.error = 'error-update';
+    notify();
+  }
 }
 
 async function scanModels(): Promise<void> {
@@ -265,6 +379,11 @@ const actions: Actions = {
   refreshBackends,
   installBackend: installBackendAction,
   updateBackends: updateBackendsAction,
+  pauseJob: pauseJobAction,
+  resumeJob: resumeJobAction,
+  cancelJob: cancelJobAction,
+  updateProject: updateProjectAction,
+  restartProject: restartProjectAction,
   scanModels,
   revealPath: revealPathAction,
   getBackendSettings: getBackendSettingsAction,
@@ -298,22 +417,26 @@ async function bootstrap(): Promise<void> {
   const sidebar = createSidebar(actions);
   const chat = createChat(actions);
   const manage = createManage(actions);
+  const jobBar = createJobBar(actions);
 
   function syncView(): void {
     chat.element.hidden = state.view !== 'chat';
     manage.element.hidden = state.view !== 'manage';
   }
 
-  root.replaceChildren(el('div', { class: 'layout' }, [sidebar.element, chat.element, manage.element]));
+  const layout = el('div', { class: 'layout' }, [sidebar.element, chat.element, manage.element]);
+  root.replaceChildren(el('div', { class: 'shell' }, [jobBar.element, layout]));
 
   subscribe(() => {
     sidebar.update();
     chat.update();
     manage.update();
+    jobBar.update();
     syncView();
   });
 
   syncView();
+  jobBar.update();
   await refreshModels();
   void refreshBackends();
   void scanModels();

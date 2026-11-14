@@ -3,8 +3,12 @@ import { Router } from './router.js';
 import {
   backendSettingsRoute,
   backendsRoute,
+  cancelJobRoute,
   installBackendRoute,
+  jobRoute,
   launchBackendRoute,
+  pauseJobRoute,
+  resumeJobRoute,
   stopBackendRoute,
   updateBackendsRoute,
 } from './routes/backends.js';
@@ -19,6 +23,11 @@ import {
 import { modelConfigRoute, saveModelConfigRoute } from './routes/model-config.js';
 import { modelsRoute } from './routes/models.js';
 import { providersRoute } from './routes/providers.js';
+import {
+  restartProjectRoute,
+  systemInfoRoute,
+  updateProjectRoute,
+} from './routes/system.js';
 
 export function createApp(context: AppContext): Router {
   return new Router()
@@ -35,8 +44,15 @@ export function createApp(context: AppContext): Router {
     .get('/api/backends/settings', backendSettingsRoute(context))
     .post('/api/backends/install', installBackendRoute(context))
     .post('/api/backends/update', updateBackendsRoute(context))
+    .get('/api/backends/jobs/:id', jobRoute(context))
+    .post('/api/backends/jobs/:id/pause', pauseJobRoute(context))
+    .post('/api/backends/jobs/:id/resume', resumeJobRoute(context))
+    .post('/api/backends/jobs/:id/cancel', cancelJobRoute(context))
     .post('/api/backends/launch', launchBackendRoute(context))
     .post('/api/backends/stop', stopBackendRoute(context))
     .get('/api/models/config', modelConfigRoute(context))
-    .post('/api/models/config', saveModelConfigRoute(context));
+    .post('/api/models/config', saveModelConfigRoute(context))
+    .get('/api/system/info', systemInfoRoute(context))
+    .post('/api/system/update', updateProjectRoute(context))
+    .post('/api/system/restart', restartProjectRoute(context));
 }

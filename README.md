@@ -115,6 +115,9 @@ Open the **Manage** tab in the sidebar:
 
 - see detected hardware and the recommended backend;
 - install or update a backend variant with one click;
+- follow backend downloads in the top progress bar, with pause, resume and cancel;
+- update the project itself with the "Update project" button (git checkouts only,
+  clean working tree, local requests only), then restart to apply;
 - scan the Hugging Face cache for GGUF models, search and sort them, mark favorites;
 - open a model's folder in the file manager;
 - configure a model with per-model settings, then launch it with an installed backend;

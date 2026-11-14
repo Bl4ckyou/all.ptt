@@ -12,9 +12,22 @@ if (!existsSync(entry)) {
   if (build.status !== 0) process.exit(build.status ?? 1);
 }
 
-const server = spawn(process.execPath, [entry], { cwd: process.cwd(), stdio: 'inherit' });
-server.on('exit', (code) => process.exit(code ?? 0));
+let server = null;
+
+function launch() {
+  server = spawn(process.execPath, [entry], { cwd: process.cwd(), stdio: 'inherit' });
+  server.on('exit', (code) => {
+    if (code === 75) {
+      console.log('Restarting PTT...');
+      setTimeout(launch, 300);
+      return;
+    }
+    process.exit(code ?? 0);
+  });
+}
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => server.kill(signal));
+  process.on(signal, () => server?.kill(signal));
 }
+
+launch();

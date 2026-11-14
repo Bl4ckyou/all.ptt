@@ -6,7 +6,6 @@ import {
   recommendBackend,
   resolveInstalledBinary,
   resolveSettings,
-  syncBackend,
   type BackendEntry,
 } from '@ptt/backends';
 import { OpenAICompatibleProvider } from '@ptt/providers';
@@ -97,21 +96,17 @@ export function installBackendRoute(context: AppContext): Handler {
       return;
     }
 
-    try {
-      const result = await syncBackend({
-        id: body.id,
-        backend,
-        target: detectTarget(),
+    const job = context.jobs.startBackends(
+      'install',
+      [{ id: body.id, label: backend.label, variant: body.variant, version: body.version }],
+      {
         root: context.root,
-        variants: body.variant ? [body.variant] : [],
-        mode: 'install',
-        version: body.version,
+        target: detectTarget(),
+        backends: context.manifest.backends,
         token: process.env.GITHUB_TOKEN,
-      });
-      sendJson(res, 200, result);
-    } catch (error) {
-      sendJson(res, 500, { error: 'error.backend', message: (error as Error).message });
-    }
+      },
+    );
+    sendJson(res, 202, job);
   };
 }
 
@@ -129,33 +124,52 @@ export function updateBackendsRoute(context: AppContext): Handler {
     }
 
     const ids = body.id ? [body.id] : Object.keys(context.manifest.backends);
-    const results: unknown[] = [];
+    const items = ids.map((id) => ({
+      id,
+      label: context.manifest.backends[id]?.label ?? id,
+    }));
 
-    for (const id of ids) {
-      const backend = context.manifest.backends[id];
-      if (!backend) {
-        results.push({ id, error: 'error.unknown_backend' });
-        continue;
-      }
-      try {
-        results.push(
-          await syncBackend({
-            id,
-            backend,
-            target: detectTarget(),
-            root: context.root,
-            mode: 'update',
-            token: process.env.GITHUB_TOKEN,
-          }),
-        );
-      } catch (error) {
-        results.push({ id, error: (error as Error).message });
-      }
-    }
-
-    sendJson(res, 200, { results });
+    const job = context.jobs.startBackends('update', items, {
+      root: context.root,
+      target: detectTarget(),
+      backends: context.manifest.backends,
+      token: process.env.GITHUB_TOKEN,
+    });
+    sendJson(res, 202, job);
   };
 }
+
+export function jobRoute(context: AppContext): Handler {
+  return ({ params, res }) => {
+    const job = context.jobs.get(params.id);
+    if (!job) {
+      sendError(res, 404, 'not_found');
+      return;
+    }
+    sendJson(res, 200, job);
+  };
+}
+
+function jobActionRoute(
+  context: AppContext,
+  action: 'pause' | 'resume' | 'cancel',
+): Handler {
+  return ({ params, res }) => {
+    const job = context.jobs[action](params.id);
+    if (!job) {
+      sendError(res, 404, 'not_found');
+      return;
+    }
+    sendJson(res, 200, job);
+  };
+}
+
+export const pauseJobRoute = (context: AppContext): Handler =>
+  jobActionRoute(context, 'pause');
+export const resumeJobRoute = (context: AppContext): Handler =>
+  jobActionRoute(context, 'resume');
+export const cancelJobRoute = (context: AppContext): Handler =>
+  jobActionRoute(context, 'cancel');
 
 interface LaunchBody {
   backendId?: string;

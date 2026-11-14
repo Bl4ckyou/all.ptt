@@ -975,12 +975,23 @@ export function createManage(actions: Actions): Manage {
     const nodes: Node[] = [
       el('div', { class: 'manage-top' }, [
         el('h2', { class: 'manage-heading' }, [icon('manage', 'icon heading'), t('nav-manage')]),
-        button('refresh', t('manage-update-all'), () => void actions.updateBackends()),
+        el('div', { class: 'manage-actions' }, [
+          button('download', t('manage-update-project'), () => void actions.updateProject()),
+          button('refresh', t('manage-update-all'), () => void actions.updateBackends()),
+        ]),
       ]),
     ];
 
     if (state.busy) nodes.push(el('p', { class: 'manage-busy' }, [icon('sparkles', 'icon small'), t(state.busy)]));
     if (state.error) nodes.push(el('p', { class: 'error' }, [icon('x'), t(state.error)]));
+    if (state.updateReady) {
+      nodes.push(
+        el('div', { class: 'manage-card' }, [
+          el('p', { class: 'manage-line' }, [icon('check', 'icon small'), t('manage-update-ready')]),
+          button('refresh', t('manage-restart'), () => void actions.restartProject()),
+        ]),
+      );
+    }
 
     nodes.push(hardwareCard());
     nodes.push(

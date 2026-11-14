@@ -106,3 +106,22 @@ export interface BackendSettingsInfo {
   categorySpecTypes: Record<string, string>;
   probed: boolean;
 }
+
+export interface JobProgressInfo {
+  backendId: string;
+  label: string;
+  phase: string;
+  asset: string | null;
+  downloaded: number;
+  total: number;
+}
+
+export interface JobInfo {
+  id: string;
+  kind: 'install' | 'update';
+  status: 'running' | 'paused' | 'done' | 'error' | 'cancelled';
+  progress: JobProgressInfo;
+  error?: string;
+  startedAt: string;
+  finishedAt?: string;
+}

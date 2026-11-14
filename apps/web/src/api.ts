@@ -6,6 +6,7 @@ import type {
   BackendsInfo,
   LocalModelInfo,
   ModelConfigInfo,
+  JobInfo,
   ProviderSummary,
   ResolvedSettingInfo,
   SettingValue,
@@ -46,23 +47,43 @@ export async function getBackends(): Promise<BackendsInfo> {
   return (await response.json()) as BackendsInfo;
 }
 
-export async function installBackend(id: string, variant: string): Promise<void> {
+export async function startInstall(id: string, variant: string): Promise<JobInfo> {
   const response = await fetch('/api/backends/install', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ id, variant }),
   });
   if (!response.ok) throw new Error('backend install failed');
+  return (await response.json()) as JobInfo;
 }
 
-export async function updateBackends(): Promise<void> {
+export async function startUpdate(): Promise<JobInfo> {
   const response = await fetch('/api/backends/update', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: '{}',
   });
   if (!response.ok) throw new Error('backend update failed');
+  return (await response.json()) as JobInfo;
 }
+
+export async function getJob(id: string): Promise<JobInfo> {
+  const response = await fetch(`/api/backends/jobs/${encodeURIComponent(id)}`);
+  if (!response.ok) throw new Error('failed to load job');
+  return (await response.json()) as JobInfo;
+}
+
+async function jobAction(id: string, action: string): Promise<JobInfo> {
+  const response = await fetch(`/api/backends/jobs/${encodeURIComponent(id)}/${action}`, {
+    method: 'POST',
+  });
+  if (!response.ok) throw new Error(`failed to ${action} job`);
+  return (await response.json()) as JobInfo;
+}
+
+export const pauseJob = (id: string): Promise<JobInfo> => jobAction(id, 'pause');
+export const resumeJob = (id: string): Promise<JobInfo> => jobAction(id, 'resume');
+export const cancelJob = (id: string): Promise<JobInfo> => jobAction(id, 'cancel');
 
 export async function getLocalModels(): Promise<{
   models: LocalModelInfo[];
@@ -120,6 +141,16 @@ export async function saveModelConfig(
     body: JSON.stringify({ path, settings, extraArgs }),
   });
   if (!response.ok) throw new Error('failed to save model config');
+}
+
+export async function updateProject(): Promise<void> {
+  const response = await fetch('/api/system/update', { method: 'POST' });
+  if (!response.ok) throw new Error('project update failed');
+}
+
+export async function restartProject(): Promise<void> {
+  const response = await fetch('/api/system/restart', { method: 'POST' });
+  if (!response.ok) throw new Error('project restart failed');
 }
 
 export interface LaunchResult {

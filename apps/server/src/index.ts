@@ -3,15 +3,18 @@ import { BackendLauncher, loadManifest } from '@ptt/backends';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
 import { webAssets } from './generated/assets.js';
+import { JobManager } from './jobs.js';
 import { ProviderRegistry } from './providers.js';
 import { serveStatic } from './static.js';
 
 const config = await loadConfig();
 const registry = new ProviderRegistry(config.providers);
 const launcher = new BackendLauncher(config.backendRoot, (providerId) => registry.remove(providerId));
+const jobs = new JobManager();
 const context = {
   registry,
   launcher,
+  jobs,
   manifest: loadManifest(),
   root: config.backendRoot,
   modelDirs: config.modelDirs,

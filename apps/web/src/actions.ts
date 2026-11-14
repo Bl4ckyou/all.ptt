@@ -17,6 +17,11 @@ export interface Actions {
   refreshBackends(): Promise<void>;
   installBackend(id: string, variant: string): Promise<void>;
   updateBackends(): Promise<void>;
+  pauseJob(): Promise<void>;
+  resumeJob(): Promise<void>;
+  cancelJob(): Promise<void>;
+  updateProject(): Promise<void>;
+  restartProject(): Promise<void>;
   scanModels(): Promise<void>;
   revealPath(target: string): Promise<void>;
   getBackendSettings(backendId: string): Promise<BackendSettingsInfo>;

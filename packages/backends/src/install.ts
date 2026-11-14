@@ -1,9 +1,8 @@
 import { existsSync } from 'node:fs';
 import { createWriteStream } from 'node:fs';
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import { once } from 'node:events';
 import { dirname, join } from 'node:path';
-import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
 import { extractArchive } from './archive.js';
 import { variantTargets } from './detect.js';
 import { findBinary, makeExecutable } from './find-binary.js';
@@ -24,17 +23,62 @@ import type {
   Target,
 } from './types.js';
 
-async function download(url: string, destination: string): Promise<void> {
-  const response = await fetch(url, { headers: { 'user-agent': 'ptt-backend-installer' } });
+export interface DownloadControl {
+  wait(): Promise<void>;
+  readonly cancelled: boolean;
+}
+
+export type SyncPhase = 'checking' | 'downloading' | 'extracting';
+
+export interface SyncProgress {
+  phase: SyncPhase;
+  asset?: string;
+  downloaded: number;
+  total: number;
+}
+
+async function download(
+  url: string,
+  destination: string,
+  options: {
+    signal?: AbortSignal;
+    control?: DownloadControl;
+    onProgress?: (downloaded: number, total: number) => void;
+  } = {},
+): Promise<void> {
+  const response = await fetch(url, {
+    headers: { 'user-agent': 'ptt-backend-installer' },
+    signal: options.signal,
+  });
   if (!response.ok || !response.body) throw new Error(`download failed: ${response.status}`);
 
   await mkdir(dirname(destination), { recursive: true });
-  await pipeline(
-    Readable.fromWeb(
-      response.body as unknown as import('node:stream/web').ReadableStream<Uint8Array>,
-    ),
-    createWriteStream(destination),
-  );
+
+  const stream = createWriteStream(destination);
+  const total = Number(response.headers.get('content-length')) || 0;
+  const reader = response.body.getReader();
+  let downloaded = 0;
+
+  options.onProgress?.(0, total);
+
+  try {
+    while (true) {
+      await options.control?.wait();
+      if (options.control?.cancelled) throw new Error('cancelled');
+
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      downloaded += value.byteLength;
+      if (!stream.write(Buffer.from(value))) await once(stream, 'drain');
+      options.onProgress?.(downloaded, total);
+    }
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      stream.end((error?: Error | null) => (error ? reject(error) : resolve()));
+    });
+    reader.releaseLock();
+  }
 }
 
 export function splitList(value: string | undefined): string[] {
@@ -152,6 +196,9 @@ export interface SyncOptions {
   force?: boolean;
   dryRun?: boolean;
   token?: string;
+  signal?: AbortSignal;
+  control?: DownloadControl;
+  onProgress?: (progress: SyncProgress) => void;
 }
 
 export async function syncBackend(options: SyncOptions): Promise<SyncResult> {
@@ -167,6 +214,8 @@ export async function syncBackend(options: SyncOptions): Promise<SyncResult> {
 
   const desired = new Map<string, { tag: string }>();
   const records: SyncRecord[] = [];
+
+  options.onProgress?.({ phase: 'checking', downloaded: 0, total: 0 });
 
   for (const request of requests) {
     const selected = await chooseRelease(
@@ -218,8 +267,40 @@ export async function syncBackend(options: SyncOptions): Promise<SyncResult> {
     const archivePath = join(directory, '.download', selected.asset.name);
 
     await rm(versionDir, { recursive: true, force: true });
-    await download(selected.asset.url, archivePath);
-    await extractArchive(archivePath, versionDir);
+
+    try {
+      options.onProgress?.({
+        phase: 'downloading',
+        asset: selected.asset.name,
+        downloaded: 0,
+        total: selected.asset.size,
+      });
+
+      await download(selected.asset.url, archivePath, {
+        signal: options.signal,
+        control: options.control,
+        onProgress: (downloaded, total) =>
+          options.onProgress?.({
+            phase: 'downloading',
+            asset: selected.asset.name,
+            downloaded,
+            total: total || selected.asset.size,
+          }),
+      });
+
+      options.onProgress?.({
+        phase: 'extracting',
+        asset: selected.asset.name,
+        downloaded: selected.asset.size,
+        total: selected.asset.size,
+      });
+
+      await extractArchive(archivePath, versionDir);
+    } catch (error) {
+      await rm(archivePath, { force: true }).catch(() => undefined);
+      await rm(versionDir, { recursive: true, force: true }).catch(() => undefined);
+      throw error;
+    }
 
     const binary = await findBinary(versionDir, backend.binaries);
     if (!binary) throw new Error(`server binary not found in ${selected.asset.name}`);

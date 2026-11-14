@@ -3,6 +3,7 @@ import type {
   AuxiliaryFile,
   BackendInfo,
   HardwareInfo,
+  JobInfo,
   LocalModelInfo,
   ProviderSummary,
   RunningBackendInfo,
@@ -29,6 +30,8 @@ export interface State {
   auxiliary: AuxiliaryFile[];
   modelDirs: string[];
   running: RunningBackendInfo[];
+  job: JobInfo | null;
+  updateReady: boolean;
 }
 
 export const state: State = {
@@ -52,6 +55,8 @@ export const state: State = {
   auxiliary: [],
   modelDirs: [],
   running: [],
+  job: null,
+  updateReady: false,
 };
 
 type Listener = () => void;
