@@ -59,6 +59,9 @@ export function createManage(actions: Actions): Manage {
   let configInfo: GgufModelInfo | null = null;
   let configSpecTypes: Record<string, string> = {};
   let configAvailableSpecTypes = new Set<string>();
+  let configRows = new Map<string, { setting: ResolvedSettingInfo; element: HTMLElement }>();
+  let configSections: HTMLElement[] = [];
+  let configAdvanced: HTMLDetailsElement | null = null;
   let configSaving = false;
   let configError: string | null = null;
   let configNode: HTMLElement | null = null;
@@ -351,12 +354,12 @@ export function createManage(actions: Actions): Manage {
                   const specType = configSpecTypes[categoryOf(file)];
                   if (specType) {
                     configValues['spec-type'] = specType;
-                    renderSettings();
-                    return;
+                    setSelectValue('spec-type', specType);
                   }
                 }
                 input.value = file.path;
                 refresh();
+                refreshSettingsVisibility();
               },
               },
             },
@@ -400,6 +403,7 @@ export function createManage(actions: Actions): Manage {
           change: (event) => {
             configValues[setting.id] = (event.target as HTMLInputElement).checked;
             updateEstimate();
+            refreshSettingsVisibility();
           },
         },
       });
@@ -434,7 +438,7 @@ export function createManage(actions: Actions): Manage {
             change: (event) => {
               configValues[setting.id] = (event.target as HTMLSelectElement).value;
               updateEstimate();
-              if (setting.id === 'spec-type') renderSettings();
+              refreshSettingsVisibility();
             },
           },
         },
@@ -459,6 +463,7 @@ export function createManage(actions: Actions): Manage {
             configValues[setting.id] = setting.type === 'number' ? Number(raw) : raw;
           }
           updateEstimate();
+          refreshSettingsVisibility();
         },
       },
     });
@@ -515,44 +520,78 @@ export function createManage(actions: Actions): Manage {
   function renderGroup(settings: ResolvedSettingInfo[]): HTMLElement {
     const wrapper = el('div', { class: 'setting-groups' });
     for (const [category, items] of categoryGroups(settings)) {
-      wrapper.append(
-        el('section', { class: 'setting-group' }, [
-          el('h4', { class: 'setting-group-title', text: t(`category-${category}`) }),
-          el('div', { class: 'setting-list' }, items.map(settingRow)),
-        ]),
-      );
+      const section = el('section', { class: 'setting-group' });
+      section.append(el('h4', { class: 'setting-group-title', text: t(`category-${category}`) }));
+
+      const list = el('div', { class: 'setting-list' });
+      for (const item of items) {
+        const row = settingRow(item);
+        configRows.set(item.id, { setting: item, element: row });
+        list.append(row);
+      }
+
+      section.append(list);
+      wrapper.append(section);
+      configSections.push(section);
     }
     return wrapper;
+  }
+
+  function refreshSettingsVisibility(): void {
+    for (const { setting, element } of configRows.values()) {
+      element.hidden = !dependsOnSatisfied(setting, configValues);
+    }
+
+    for (const section of configSections) {
+      const rows = [...section.querySelectorAll<HTMLElement>('.setting-row')];
+      section.hidden = rows.length > 0 && rows.every((row) => row.hidden);
+    }
+
+    if (configAdvanced) {
+      const rows = [...configAdvanced.querySelectorAll<HTMLElement>('.setting-row')];
+      configAdvanced.hidden = rows.length === 0 || rows.every((row) => row.hidden);
+    }
+  }
+
+  function setSelectValue(id: string, value: string): void {
+    const select = configRows.get(id)?.element.querySelector('select');
+    if (!select) return;
+
+    if (![...select.options].some((choice) => choice.value === value)) {
+      select.append(option(value, value, false));
+    }
+    select.value = value;
   }
 
   function renderSettings(): void {
     if (!settingsHost) return;
     settingsHost.replaceChildren();
+    configRows = new Map();
+    configSections = [];
+    configAdvanced = null;
 
     if (configError) {
       settingsHost.append(el('p', { class: 'error' }, [icon('x'), t(configError)]));
     } else if (configSettings.length === 0) {
       settingsHost.append(el('p', { class: 'manage-line muted', text: t('manage-config-none') }));
     } else {
-      const usable = configSettings.filter((setting) =>
-        dependsOnSatisfied(setting, configValues),
-      );
-      const basic = usable.filter((setting) => !setting.advanced);
-      const advanced = usable.filter((setting) => setting.advanced);
+      const basic = configSettings.filter((setting) => !setting.advanced);
+      const advanced = configSettings.filter((setting) => setting.advanced);
 
       if (basic.length > 0) settingsHost.append(renderGroup(basic));
       if (advanced.length > 0) {
-        settingsHost.append(
-          el('details', { class: 'advanced' }, [
-            el('summary', { class: 'advanced-summary' }, [
-              icon('manage', 'icon small'),
-              t('manage-advanced'),
-            ]),
-            renderGroup(advanced),
+        configAdvanced = el('details', { class: 'advanced' }, [
+          el('summary', { class: 'advanced-summary' }, [
+            icon('manage', 'icon small'),
+            t('manage-advanced'),
           ]),
-        );
+          renderGroup(advanced),
+        ]);
+        settingsHost.append(configAdvanced);
       }
     }
+
+    refreshSettingsVisibility();
 
     settingsHost.classList.remove('fade-in');
     void settingsHost.offsetWidth;
