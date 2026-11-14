@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
+import { webAssets } from './generated/assets.js';
 import { ProviderRegistry } from './providers.js';
 import { serveStatic } from './static.js';
 
@@ -30,6 +31,13 @@ const server = createServer(async (req, res) => {
 
 server.listen(config.port, config.host, () => {
   console.log(`PTT listening on http://${config.host}:${config.port}`);
+  const webCount = Object.keys(webAssets).length;
+  if (webCount === 0) {
+    console.log('  web UI: not built — run `npm run build`, or `npm run dev` and open http://127.0.0.1:5173');
+  } else {
+    console.log(`  web UI: ${webCount} assets`);
+  }
+  console.log(`  config: ${process.env.PTT_CONFIG ?? 'config.json'} (optional)`);
   for (const provider of registry.all()) {
     console.log(`  provider: ${provider.id}`);
   }

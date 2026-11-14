@@ -17,9 +17,16 @@ HTTP API, so you can use prebuilt binaries:
 
 ```bash
 npm install
-npm run build
 npm start
-# open http://127.0.0.1:4750
+# first run builds automatically, then open http://127.0.0.1:4750
+```
+
+`npm start` keeps the server in the foreground: leave the terminal open.
+If the page is unreachable, make sure this process is still running.
+To expose PTT on your network (WSL, container, remote box):
+
+```bash
+PTT_HOST=0.0.0.0 npm start
 ```
 
 By default PTT expects llama.cpp at `http://127.0.0.1:8080/v1`.
@@ -58,8 +65,8 @@ npm run build:binary   # requires Bun; output: dist/ptt
 ## Development
 
 ```bash
-npm run dev:server   # API on :4750
-npm run dev:web      # UI on :5173 (proxies /api to :4750)
+npm run dev        # starts API (:4750) and UI (:5173)
+# open http://127.0.0.1:5173
 ```
 
 Then run all checks:
