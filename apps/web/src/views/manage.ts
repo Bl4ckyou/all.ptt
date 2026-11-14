@@ -201,12 +201,13 @@ export function createManage(actions: Actions): Manage {
     setting: ResolvedSettingInfo,
     current: SettingValue | undefined,
   ): HTMLElement {
-    const candidates: LocalModelInfo[] =
+    const candidates: LocalModelInfo[] = (
       setting.fileKind === 'mmproj'
         ? state.auxiliary.filter((file) => file.kind === 'mmproj')
         : setting.fileKind === 'mtp'
           ? state.auxiliary.filter((file) => file.kind === 'mtp')
-          : state.localModels;
+          : [...state.localModels, ...state.auxiliary.filter((file) => file.kind === 'mtp')]
+    ).filter((file) => file.path !== configModel?.path);
 
     const CATEGORY_RANK: Record<string, number> = {
       assistant: 0,
