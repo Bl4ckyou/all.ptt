@@ -125,3 +125,47 @@ export function detectTarget() {
   const gpu = detectGpu();
   return { os, arch, cpu, gpu, targets: candidateTargets({ os, arch, gpu }) };
 }
+
+export const VARIANTS = ['auto', 'cpu', 'vulkan', 'cuda', 'rocm', 'metal'];
+
+function osPrefix(os) {
+  if (os === 'win32') return 'win';
+  if (os === 'darwin') return 'darwin';
+  return 'linux';
+}
+
+// Turn a user-facing variant into ordered candidate target keys.
+export function variantTargets(variant, target) {
+  const { os, arch } = target;
+  const prefix = osPrefix(os);
+
+  if (variant === 'auto') {
+    const withoutCuda = target.targets.filter((key) => !key.endsWith('-cuda'));
+    return withoutCuda.length > 0 ? withoutCuda : target.targets;
+  }
+
+  if (variant === 'metal') {
+    return os === 'darwin' && arch === 'arm64' ? ['darwin-arm64-metal'] : [];
+  }
+
+  if (variant === 'cpu') {
+    if (arch === 'arm64') {
+      return os === 'darwin' ? ['darwin-arm64-metal'] : [`${prefix}-arm64-cpu`];
+    }
+    return arch === 'x64' ? [`${prefix}-x64-cpu`] : [];
+  }
+
+  if (variant === 'vulkan' || variant === 'cuda' || variant === 'rocm') {
+    return arch === 'x64' ? [`${prefix}-x64-${variant}`] : [];
+  }
+
+  return [];
+}
+
+// Pick a default backend from the hardware profile (policy lives in backends.json).
+export function recommendBackend(target, defaults) {
+  const cpuOnlyVendors = defaults.cpuOnlyVendors ?? [];
+  const cpuOnly = cpuOnlyVendors.includes(target.gpu.vendor);
+  if (cpuOnly && target.arch === 'x64' && target.cpu) return defaults.cpuOnly;
+  return defaults.gpu;
+}

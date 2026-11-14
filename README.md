@@ -64,32 +64,46 @@ npm run build:binary   # requires Bun; output: dist/ptt
 
 ## Backend binaries
 
-PTT can download prebuilt binaries from GitHub releases and pick the build that
-matches your OS, CPU and GPU:
+PTT downloads prebuilt binaries from GitHub releases, picks the right build for
+your OS/CPU/GPU, and keeps only what it needs.
 
 ```bash
-npm run backend:info      # detected platform, cpu, gpu, target priority
+npm run backend:info      # platform, cpu, gpu, target priority, recommendation
 npm run backend:list      # configured sources
-npm run backend:install   # download every configured backend
-npm run backend:install -- llama-cpp --dry-run
-npm run backend:install -- llama-cpp --version b12383
-npm run backend:install -- llama-cpp --target linux-x64-cpu
+npm run backend:install   # install the recommended backend
+npm run backend:update    # refresh what is already installed
 ```
 
-Use `--target` to force a build (for example `linux-x64-cpu` if the detected
-Vulkan build cannot load your driver).
-
-Binaries live in `.backends/<id>/<tag>/` (gitignored). The chosen server path is
-written to `.backends/<id>/installed.json`. Then start it, for example:
+Pick a backend and a compute variant explicitly:
 
 ```bash
-.backends/llama-cpp/<tag>/<dir>/llama-server -m model.gguf --port 8080
+npm run backend:install -- llama-cpp
+npm run backend:install -- ik-llama-cpp --variant cpu
+npm run backend:install -- llama-cpp --variant cuda
+npm run backend:install -- llama-cpp --variant vulkan
+npm run backend:install -- llama-cpp --target linux-x64-cpu
+npm run backend:install -- llama-cpp --dry-run
 ```
 
-Everything is data-driven in `backends.json`: source repo, asset include/exclude
-patterns, preference order and server binary names. Add a backend or adapt to new
-asset naming by editing that file only. Patterns support `{cpu}`, `{cuda}`,
-`{os}` and `{arch}` placeholders.
+Policy:
+- `ik_llama.cpp` is the default on CPU-only x86 (AVX2/AVX512). It only ships
+  x86 CPU and NVIDIA builds.
+- `llama.cpp` covers everything else (Vulkan, Metal, ROCm, ARM, ...).
+- CUDA is opt-in: use `--variant cuda` on either backend.
+
+Selected variants and tags are remembered in `.backends/<id>/installed.json`.
+`npm run backend:update` fetches newer tags and **deletes the old ones**, so disk
+usage stays roughly constant. Switching `--variant` replaces the previous one.
+
+Binaries live in `.backends/<id>/<target>/<tag>/` (gitignored). Start one with:
+
+```bash
+.backends/llama-cpp/<target>/<tag>/<dir>/llama-server -m model.gguf --port 8080
+```
+
+Everything is data-driven in `backends.json`: default backend policy, source
+repos, asset include/exclude patterns, preference order and binary names.
+Patterns support `{cpu}`, `{cuda}`, `{os}` and `{arch}` placeholders.
 
 Detection is best-effort: NVIDIA via `nvidia-smi`, AMD via `rocminfo`/`rocm-smi`,
 Intel/others via `lspci` (Linux) or WMI (Windows), Apple Metal on macOS. Set

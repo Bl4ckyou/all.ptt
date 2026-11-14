@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { candidateTargets } from './detect.mjs';
+import { candidateTargets, recommendBackend, variantTargets } from './detect.mjs';
 import { selectAsset } from './select.mjs';
 
 const manifest = JSON.parse(
@@ -84,5 +84,58 @@ describe('candidateTargets', () => {
     expect(
       candidateTargets({ os: 'linux', arch: 'x64', gpu: { vendor: 'none' } }),
     ).toEqual(['linux-x64-cpu']);
+  });
+});
+
+describe('variantTargets', () => {
+  const nvidia = {
+    os: 'linux',
+    arch: 'x64',
+    cpu: 'avx2',
+    gpu: { vendor: 'nvidia' },
+    targets: ['linux-x64-cuda', 'linux-x64-vulkan', 'linux-x64-cpu'],
+  };
+
+  it('auto never picks cuda (opt-in only)', () => {
+    expect(variantTargets('auto', nvidia)).toEqual(['linux-x64-vulkan', 'linux-x64-cpu']);
+  });
+
+  it('maps explicit variants to a single target', () => {
+    expect(variantTargets('cuda', nvidia)).toEqual(['linux-x64-cuda']);
+    expect(variantTargets('cpu', nvidia)).toEqual(['linux-x64-cpu']);
+  });
+
+  it('rejects vulkan on arm', () => {
+    expect(variantTargets('vulkan', { os: 'linux', arch: 'arm64', targets: [] })).toEqual([]);
+  });
+});
+
+describe('recommendBackend', () => {
+  const defaults = manifest.defaults;
+
+  it('picks ik_llama.cpp for cpu-only x86', () => {
+    expect(
+      recommendBackend(
+        { os: 'linux', arch: 'x64', cpu: 'avx2', gpu: { vendor: 'none' } },
+        defaults,
+      ),
+    ).toBe('ik-llama-cpp');
+  });
+
+  it('picks llama.cpp when a discrete gpu is present', () => {
+    expect(
+      recommendBackend(
+        { os: 'linux', arch: 'x64', cpu: 'avx2', gpu: { vendor: 'nvidia' } },
+        defaults,
+      ),
+    ).toBe('llama-cpp');
+  });
+});
+
+describe('manifest', () => {
+  it('does not claim vulkan or metal support for ik_llama.cpp', () => {
+    const targets = manifest.backends['ik-llama-cpp'].selection.flatMap((rule) => rule.targets);
+    expect(targets.some((key) => key.includes('vulkan'))).toBe(false);
+    expect(targets.some((key) => key.includes('metal') || key.includes('darwin'))).toBe(false);
   });
 });

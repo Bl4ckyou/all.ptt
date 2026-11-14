@@ -1,9 +1,16 @@
 {
-  "$comment": "Data-driven binary sources. Patterns are matched against GitHub release asset names. Placeholders: {cpu}, {cuda}, {os}, {arch}.",
+  "$comment": "Data-driven binary sources. Patterns match GitHub release asset names. Placeholders: {cpu}, {cuda}, {os}, {arch}.",
+  "defaults": {
+    "$comment": "Backend picked on first install. cpuOnlyVendors = hardware with no usable discrete GPU.",
+    "cpuOnlyVendors": ["none", "intel"],
+    "cpuOnly": "ik-llama-cpp",
+    "gpu": "llama-cpp"
+  },
   "backends": {
     "llama-cpp": {
       "label": "llama.cpp",
       "repo": "ggml-org/llama.cpp",
+      "defaultVariant": "auto",
       "binaries": ["llama-server", "llama-server.exe"],
       "selection": [
         {
@@ -31,8 +38,9 @@
       ]
     },
     "ik-llama-cpp": {
-      "label": "ik_llama.cpp (Thireus)",
+      "label": "ik_llama.cpp (Thireus) — x86 CPU + NVIDIA",
       "repo": "Thireus/ik_llama.cpp",
+      "defaultVariant": "cpu",
       "binaries": ["llama-server", "llama-server.exe"],
       "selection": [
         {
@@ -44,11 +52,6 @@
             "cuda-.*-x64-{cpu}\\.zip$",
             "cuda-.*-x64-avx2\\.zip$"
           ]
-        },
-        {
-          "targets": ["linux-x64-vulkan"],
-          "include": "ik_llama-main-.*-bin-ubuntu-vulkan-x64-.*\\.zip$",
-          "prefer": ["-{cpu}\\.zip$", "-avx2\\.zip$"]
         },
         {
           "targets": ["linux-x64-cpu"],
