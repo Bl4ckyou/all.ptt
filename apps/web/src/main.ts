@@ -8,6 +8,7 @@ import {
   getProviders,
   installBackend,
   launchBackend,
+  revealPath as revealPathRequest,
   stopBackend,
   streamChat,
   updateBackends,
@@ -109,12 +110,23 @@ async function scanModels(): Promise<void> {
   state.busy = 'status-scanning';
   notify();
   try {
-    state.localModels = (await getLocalModels()).models;
+    const scan = await getLocalModels();
+    state.localModels = scan.models;
+    state.modelDirs = scan.directories;
   } catch {
     state.error = 'error-backend';
   }
   state.busy = null;
   notify();
+}
+
+async function revealPathAction(target: string): Promise<void> {
+  try {
+    await revealPathRequest(target);
+  } catch {
+    state.error = 'error-backend';
+    notify();
+  }
 }
 
 async function launchModel(model: LocalModelInfo, backendId: string): Promise<void> {
@@ -220,6 +232,7 @@ const actions: Actions = {
   installBackend: installBackendAction,
   updateBackends: updateBackendsAction,
   scanModels,
+  revealPath: revealPathAction,
   launchModel,
   stopBackend: stopBackendAction,
 };

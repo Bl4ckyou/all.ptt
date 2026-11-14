@@ -27,6 +27,12 @@ const ICONS = {
   check: '<polyline points="20 6 9 17 4 12"/>',
   x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
   send: '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
+  search: '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+  star: '<polygon points="12 2 15.1 8.6 22 9.6 17 14.5 18.2 21.4 12 18.1 5.8 21.4 7 14.5 2 9.6 8.9 8.6 12 2"/>',
+  starFilled:
+    '<polygon points="12 2 15.1 8.6 22 9.6 17 14.5 18.2 21.4 12 18.1 5.8 21.4 7 14.5 2 9.6 8.9 8.6 12 2" fill="currentColor"/>',
+  folderOpen:
+    '<path d="M3 19V5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v2"/><path d="M3 19l2.4-8.4A2 2 0 0 1 7.3 9H22l-2.6 8.6a2 2 0 0 1-1.9 1.4z"/>',
 } as const;
 
 export type IconName = keyof typeof ICONS;

@@ -58,10 +58,19 @@ export async function updateBackends(): Promise<void> {
   if (!response.ok) throw new Error('backend update failed');
 }
 
-export async function getLocalModels(): Promise<{ models: LocalModelInfo[] }> {
+export async function getLocalModels(): Promise<{ models: LocalModelInfo[]; directories: string[] }> {
   const response = await fetch('/api/models/local');
   if (!response.ok) throw new Error('failed to scan models');
-  return (await response.json()) as { models: LocalModelInfo[] };
+  return (await response.json()) as { models: LocalModelInfo[]; directories: string[] };
+}
+
+export async function revealPath(target: string): Promise<void> {
+  const response = await fetch('/api/models/reveal', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ path: target }),
+  });
+  if (!response.ok) throw new Error('failed to open folder');
 }
 
 export interface LaunchResult {

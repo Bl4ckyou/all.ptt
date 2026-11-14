@@ -1,9 +1,11 @@
 import type { Actions } from '../actions.js';
 import { el, option } from '../dom.js';
 import { t } from '../i18n.js';
-import { icon } from '../icons.js';
+import { icon, type IconName } from '../icons.js';
 import { state } from '../state.js';
 import type { BackendInfo } from '../types.js';
+
+const FAVORITES_KEY = 'ptt.favorites';
 
 export interface Manage {
   element: HTMLElement;
@@ -20,18 +22,49 @@ function variantLabel(variant: string): string {
   return variant === 'auto' ? t('backend-auto') : t(`variant-${variant}`);
 }
 
-function button(iconName: Parameters<typeof icon>[0], label: string, onClick: () => void, danger = false): HTMLButtonElement {
-  return el(
-    'button',
-    { class: `button${danger ? ' danger' : ''}`, on: { click: onClick } },
-    [icon(iconName), label],
-  );
+function loadFavorites(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(FAVORITES_KEY) ?? '[]') as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveFavorites(favorites: Set<string>): void {
+  localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favorites]));
 }
 
 export function createManage(actions: Actions): Manage {
   const element = el('section', { class: 'manage' });
   const variantChoices = new Map<string, string>();
+  const favorites = loadFavorites();
   let launchBackend: string | null = null;
+  let search = '';
+
+  function button(iconName: IconName, label: string, onClick: () => void, danger = false): HTMLButtonElement {
+    return el(
+      'button',
+      { class: `button${danger ? ' danger' : ''}`, on: { click: onClick } },
+      [icon(iconName), label],
+    );
+  }
+
+  function iconButton(
+    iconName: IconName,
+    label: string,
+    onClick: () => void,
+    active = false,
+  ): HTMLButtonElement {
+    return el(
+      'button',
+      {
+        class: `icon-button${active ? ' active' : ''}`,
+        attrs: { title: label, 'aria-label': label },
+        on: { click: onClick },
+      },
+      [icon(iconName)],
+    );
+  }
 
   function installedBackends(): { id: string; label: string }[] {
     return state.backends
@@ -97,6 +130,34 @@ export function createManage(actions: Actions): Manage {
     ]);
   }
 
+  function modelCard(model: (typeof state.localModels)[number]): HTMLElement {
+    const favorite = favorites.has(model.path);
+
+    return el('div', { class: 'model-card' }, [
+      el('div', { class: 'model-card-top' }, [
+        el('span', { class: 'model-name' }, [icon('model', 'icon small'), model.name]),
+        el('div', { class: 'model-actions' }, [
+          iconButton(
+            favorite ? 'starFilled' : 'star',
+            favorite ? t('manage-unfavorite') : t('manage-favorite'),
+            () => {
+              if (favorite) favorites.delete(model.path);
+              else favorites.add(model.path);
+              saveFavorites(favorites);
+              update();
+            },
+            favorite,
+          ),
+          iconButton('folderOpen', t('manage-open-folder'), () => void actions.revealPath(model.path)),
+        ]),
+      ]),
+      el('span', { class: 'manage-line muted', text: formatSize(model.size) }),
+      button('play', t('manage-launch'), () => {
+        if (launchBackend) void actions.launchModel(model, launchBackend);
+      }),
+    ]);
+  }
+
   function modelsCard(): HTMLElement {
     const installed = installedBackends();
     if (!launchBackend || !installed.some((backend) => backend.id === launchBackend)) {
@@ -116,22 +177,55 @@ export function createManage(actions: Actions): Manage {
       installed.map((backend) => option(backend.id, backend.label, backend.id === launchBackend)),
     );
 
-    const rows = state.localModels.map((model) =>
-      el('div', { class: 'model-row' }, [
-        el('div', { class: 'model-info' }, [
-          el('span', { class: 'model-name' }, [icon('model', 'icon small'), model.name]),
-          el('span', { class: 'manage-line muted', text: formatSize(model.size) }),
-        ]),
-        button('play', t('manage-launch'), () => {
-          if (launchBackend) void actions.launchModel(model, launchBackend);
-        }),
-      ]),
-    );
+    const tools: Node[] = [];
+    const openDirectory = state.modelDirs[0];
+    if (openDirectory) {
+      tools.push(
+        iconButton('folderOpen', t('manage-open-folder'), () => void actions.revealPath(openDirectory)),
+      );
+    }
+    tools.push(iconButton('scan', t('manage-scan'), () => void actions.scanModels()));
+
+    const term = search.trim().toLowerCase();
+    const visible = state.localModels
+      .filter(
+        (model) =>
+          term.length === 0 ||
+          model.name.toLowerCase().includes(term) ||
+          model.path.toLowerCase().includes(term),
+      )
+      .sort(
+        (a, b) =>
+          Number(favorites.has(b.path)) - Number(favorites.has(a.path)) ||
+          a.name.localeCompare(b.name),
+      );
+
+    const searchInput = el('input', {
+      class: 'control model-search',
+      value: search,
+      attrs: { type: 'search', placeholder: t('manage-search') },
+      on: {
+        input: (event) => {
+          search = (event.target as HTMLInputElement).value;
+          update();
+        },
+      },
+    });
+
+    const list =
+      visible.length === 0
+        ? el('p', {
+            class: 'manage-line muted',
+            text: term.length > 0 ? t('manage-no-results') : t('manage-no-models'),
+          })
+        : el('div', { class: 'model-scroll' }, [
+            el('div', { class: 'model-grid' }, visible.map(modelCard)),
+          ]);
 
     return el('div', { class: 'manage-card' }, [
       el('div', { class: 'manage-head manage-head-row' }, [
         el('h3', { class: 'manage-title' }, [icon('folder', 'icon small'), t('manage-local-models')]),
-        button('scan', t('manage-scan'), () => void actions.scanModels()),
+        el('div', { class: 'model-actions' }, tools),
       ]),
       installed.length === 0
         ? el('p', { class: 'manage-line muted', text: t('manage-not-installed') })
@@ -139,10 +233,17 @@ export function createManage(actions: Actions): Manage {
             el('span', { class: 'field-label' }, [icon('play', 'icon small'), t('manage-launch-with')]),
             backendSelect,
           ]),
-      state.localModels.length === 0
-        ? el('p', { class: 'manage-line muted', text: t('manage-no-models') })
-        : el('div', { class: 'model-list' }, rows),
-    ]);
+      state.localModels.length > 0
+        ? el('label', { class: 'search' }, [
+            icon('search', 'icon small'),
+            searchInput,
+          ])
+        : null,
+      state.localModels.length > 0
+        ? el('p', { class: 'manage-line muted', text: t('manage-model-count', { count: visible.length }) })
+        : null,
+      list,
+    ].filter(Boolean) as Node[]);
   }
 
   function runningCard(): HTMLElement {
@@ -168,6 +269,11 @@ export function createManage(actions: Actions): Manage {
   }
 
   function update(): void {
+    const active = document.activeElement;
+    const restoring =
+      active instanceof HTMLInputElement && active.classList.contains('model-search');
+    const caret = restoring ? active.selectionStart : null;
+
     const nodes: Node[] = [
       el('div', { class: 'manage-top' }, [
         el('h2', { class: 'manage-heading' }, [icon('manage', 'icon heading'), t('nav-manage')]),
@@ -189,6 +295,12 @@ export function createManage(actions: Actions): Manage {
     nodes.push(runningCard());
 
     element.replaceChildren(...nodes);
+
+    if (restoring) {
+      const input = element.querySelector<HTMLInputElement>('.model-search');
+      input?.focus();
+      if (caret !== null) input?.setSelectionRange(caret, caret);
+    }
   }
 
   return { element, update };

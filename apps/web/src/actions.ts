@@ -12,6 +12,7 @@ export interface Actions {
   installBackend(id: string, variant: string): Promise<void>;
   updateBackends(): Promise<void>;
   scanModels(): Promise<void>;
+  revealPath(target: string): Promise<void>;
   launchModel(model: LocalModelInfo, backendId: string): Promise<void>;
   stopBackend(providerId: string): Promise<void>;
 }

@@ -1,7 +1,6 @@
 import { realpath, readdir, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-
 export interface LocalModel {
   path: string;
   name: string;
@@ -89,4 +88,19 @@ export async function scanLocalModels(extraDirs: string[] = []): Promise<LocalMo
   }
 
   return models.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Existing directories that may contain models, for "open folder" actions.
+export async function listModelDirectories(extraDirs: string[] = []): Promise<string[]> {
+  const candidates = [...new Set([...huggingFaceCacheDirs(), ...extraDirs])];
+  const existing: string[] = [];
+
+  for (const directory of candidates) {
+    try {
+      if ((await stat(directory)).isDirectory()) existing.push(directory);
+    } catch {
+      // missing directory
+    }
+  }
+  return existing;
 }

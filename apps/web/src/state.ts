@@ -24,6 +24,7 @@ export interface State {
   recommended: string | null;
   backends: BackendInfo[];
   localModels: LocalModelInfo[];
+  modelDirs: string[];
   running: RunningBackendInfo[];
 }
 
@@ -44,6 +45,7 @@ export const state: State = {
   recommended: null,
   backends: [],
   localModels: [],
+  modelDirs: [],
   running: [],
 };
 

@@ -39,5 +39,7 @@ export {
 } from './state.js';
 export { scanLocalModels } from './models.js';
 export type { LocalModel } from './models.js';
+export { listModelDirectories } from './models.js';
+export { revealPath } from './reveal.js';
 export { BackendLauncher, findFreePort } from './launch.js';
 export type { LaunchOptions, RunningBackend } from './launch.js';
