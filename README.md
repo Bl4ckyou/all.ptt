@@ -172,9 +172,15 @@ Projects are plain folders, no database:
   conversations/<id>.jsonl      messages, append-only
 ```
 
-`notes.md` is human-editable and read by PTT before each message. Conversation
+`notes.md` is human-editable and read by all.ptt before each message. Conversation
 titles are derived from the first user message. Everything stays local and
 gitignored.
+
+## Fonts
+
+The UI uses **Righteous** (logo and headings) and **Lobster Two** (accents). Both are
+under the SIL Open Font License; the license files live in
+`apps/web/public/fonts/`.
 
 ## Development
 

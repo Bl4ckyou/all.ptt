@@ -765,7 +765,7 @@ export function createManage(actions: Actions): Manage {
     configSaving = false;
 
     configNode = buildConfigModal(model);
-    element.append(configNode);
+    document.body.append(configNode);
     await loadConfigBody();
   }
 
@@ -1004,7 +1004,6 @@ export function createManage(actions: Actions): Manage {
     nodes.push(runningCard());
 
     element.replaceChildren(...nodes);
-    if (configNode) element.append(configNode);
 
     if (restoring) {
       const input = element.querySelector<HTMLInputElement>('.model-search');
