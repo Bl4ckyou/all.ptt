@@ -1,10 +1,23 @@
 import { detectLocale } from '@ptt/i18n';
 import type { Actions } from './actions.js';
-import { getLocales, getModels, getProviders, streamChat } from './api.js';
+import {
+  getBackends,
+  getLocales,
+  getLocalModels,
+  getModels,
+  getProviders,
+  installBackend,
+  launchBackend,
+  stopBackend,
+  streamChat,
+  updateBackends,
+} from './api.js';
 import { el } from './dom.js';
 import { loadI18n, readStoredLocale, storeLocale } from './i18n.js';
 import { notify, state, subscribe } from './state.js';
+import type { LocalModelInfo } from './types.js';
 import { createChat } from './views/chat.js';
+import { createManage } from './views/manage.js';
 import { createSidebar } from './views/sidebar.js';
 
 let activeRequest: AbortController | null = null;
@@ -29,6 +42,19 @@ async function refreshModels(): Promise<void> {
   notify();
 }
 
+async function refreshBackends(): Promise<void> {
+  try {
+    const info = await getBackends();
+    state.hardware = info.target;
+    state.recommended = info.recommended;
+    state.backends = info.backends;
+    state.running = info.running;
+  } catch {
+    // backend panel is optional; keep the UI usable
+  }
+  notify();
+}
+
 async function setLocale(locale: string): Promise<void> {
   state.locale = locale;
   storeLocale(locale);
@@ -46,6 +72,92 @@ function setProvider(id: string): void {
 function setModel(id: string): void {
   state.model = id;
   notify();
+}
+
+function setView(view: 'chat' | 'manage'): void {
+  state.view = view;
+  notify();
+}
+
+async function installBackendAction(id: string, variant: string): Promise<void> {
+  state.busy = 'status-installing';
+  state.error = null;
+  notify();
+  try {
+    await installBackend(id, variant);
+  } catch {
+    state.error = 'error-backend';
+  }
+  state.busy = null;
+  await refreshBackends();
+}
+
+async function updateBackendsAction(): Promise<void> {
+  state.busy = 'status-installing';
+  state.error = null;
+  notify();
+  try {
+    await updateBackends();
+  } catch {
+    state.error = 'error-backend';
+  }
+  state.busy = null;
+  await refreshBackends();
+}
+
+async function scanModels(): Promise<void> {
+  state.busy = 'status-scanning';
+  notify();
+  try {
+    state.localModels = (await getLocalModels()).models;
+  } catch {
+    state.error = 'error-backend';
+  }
+  state.busy = null;
+  notify();
+}
+
+async function launchModel(model: LocalModelInfo, backendId: string): Promise<void> {
+  state.busy = 'status-launching';
+  state.error = null;
+  notify();
+
+  try {
+    const run = await launchBackend(backendId, model.path);
+    const { providers } = await getProviders();
+    state.providers = providers;
+
+    const { models } = await getModels();
+    state.models = models;
+    state.providerId = run.providerId;
+    state.model = models.find((entry) => entry.provider === run.providerId)?.id ?? null;
+    state.view = 'chat';
+  } catch {
+    state.error = 'error-launch';
+  }
+
+  state.busy = null;
+  await refreshBackends();
+}
+
+async function stopBackendAction(providerId: string): Promise<void> {
+  try {
+    await stopBackend(providerId);
+    const { providers } = await getProviders();
+    state.providers = providers;
+
+    const { models } = await getModels();
+    state.models = models;
+
+    if (state.providerId === providerId) {
+      const first = models[0];
+      state.providerId = first?.provider ?? providers[0]?.id ?? null;
+      state.model = first?.id ?? null;
+    }
+  } catch {
+    state.error = 'error-backend';
+  }
+  await refreshBackends();
 }
 
 function stop(): void {
@@ -96,7 +208,21 @@ function send(text: string): void {
     });
 }
 
-const actions: Actions = { send, stop, refreshModels, setLocale, setProvider, setModel };
+const actions: Actions = {
+  send,
+  stop,
+  refreshModels,
+  setLocale,
+  setProvider,
+  setModel,
+  setView,
+  refreshBackends,
+  installBackend: installBackendAction,
+  updateBackends: updateBackendsAction,
+  scanModels,
+  launchModel,
+  stopBackend: stopBackendAction,
+};
 
 async function bootstrap(): Promise<void> {
   const root = document.querySelector<HTMLElement>('#app');
@@ -120,14 +246,26 @@ async function bootstrap(): Promise<void> {
 
   const sidebar = createSidebar(actions);
   const chat = createChat(actions);
-  root.replaceChildren(el('div', { class: 'layout' }, [sidebar.element, chat.element]));
+  const manage = createManage(actions);
+
+  function syncView(): void {
+    chat.element.hidden = state.view !== 'chat';
+    manage.element.hidden = state.view !== 'manage';
+  }
+
+  root.replaceChildren(el('div', { class: 'layout' }, [sidebar.element, chat.element, manage.element]));
 
   subscribe(() => {
     sidebar.update();
     chat.update();
+    manage.update();
+    syncView();
   });
 
+  syncView();
   await refreshModels();
+  void refreshBackends();
+  void scanModels();
 }
 
 bootstrap().catch((error: unknown) => {

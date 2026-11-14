@@ -59,6 +59,18 @@ export function createSidebar(actions: Actions): Sidebar {
         el('span', { class: 'brand-title', text: t('app-title') }),
         el('span', { class: 'brand-tagline', text: t('app-tagline') }),
       ]),
+      el('nav', { class: 'nav' }, [
+        el('button', {
+          class: `nav-button${state.view === 'chat' ? ' active' : ''}`,
+          text: t('nav-chat'),
+          on: { click: () => actions.setView('chat') },
+        }),
+        el('button', {
+          class: `nav-button${state.view === 'manage' ? ' active' : ''}`,
+          text: t('nav-manage'),
+          on: { click: () => actions.setView('manage') },
+        }),
+      ]),
       field(t('provider-label'), providerSelect),
       field(t('model-label'), modelSelect),
       field(t('language-label'), localeSelect),

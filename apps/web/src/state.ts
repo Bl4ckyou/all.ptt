@@ -1,15 +1,14 @@
 import type { ChatMessage, ModelInfo } from '@ptt/core';
-
-export interface ProviderSummary {
-  id: string;
-  capabilities: {
-    chat: boolean;
-    streaming: boolean;
-    models: boolean;
-  };
-}
+import type {
+  BackendInfo,
+  HardwareInfo,
+  LocalModelInfo,
+  ProviderSummary,
+  RunningBackendInfo,
+} from './types.js';
 
 export interface State {
+  view: 'chat' | 'manage';
   locale: string;
   locales: string[];
   defaultLocale: string;
@@ -20,9 +19,16 @@ export interface State {
   messages: ChatMessage[];
   streaming: boolean;
   error: string | null;
+  busy: string | null;
+  hardware: HardwareInfo | null;
+  recommended: string | null;
+  backends: BackendInfo[];
+  localModels: LocalModelInfo[];
+  running: RunningBackendInfo[];
 }
 
 export const state: State = {
+  view: 'chat',
   locale: 'en',
   locales: [],
   defaultLocale: 'en',
@@ -33,6 +39,12 @@ export const state: State = {
   messages: [],
   streaming: false,
   error: null,
+  busy: null,
+  hardware: null,
+  recommended: null,
+  backends: [],
+  localModels: [],
+  running: [],
 };
 
 type Listener = () => void;

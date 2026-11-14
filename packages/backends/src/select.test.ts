@@ -1,14 +1,12 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { candidateTargets, recommendBackend, variantTargets } from './detect.mjs';
-import { selectAsset } from './select.mjs';
+import { candidateTargets, recommendBackend, variantTargets } from './detect.js';
+import { loadManifest } from './manifest.js';
+import { selectAsset } from './select.js';
 
-const manifest = JSON.parse(
-  readFileSync(new URL('../../backends.json', import.meta.url), 'utf8'),
-);
+const manifest = loadManifest();
 const context = { cpu: 'avx2', cuda: '12.8', os: 'linux', arch: 'x64' };
 
-function asset(name) {
+function asset(name: string) {
   return { name, url: `https://example.test/${name}`, size: 1 };
 }
 
@@ -25,8 +23,8 @@ describe('selectAsset', () => {
       ['linux-x64-cuda', 'linux-x64-vulkan', 'linux-x64-cpu'],
       context,
     );
-    expect(result.target).toBe('linux-x64-cuda');
-    expect(result.asset.name).toBe('llama-b1-bin-ubuntu-cuda-12.8-x64.tar.gz');
+    expect(result?.target).toBe('linux-x64-cuda');
+    expect(result?.asset.name).toBe('llama-b1-bin-ubuntu-cuda-12.8-x64.tar.gz');
   });
 
   it('falls back to the cpu build when gpu builds are missing', () => {
@@ -36,7 +34,7 @@ describe('selectAsset', () => {
       ['linux-x64-cuda', 'linux-x64-vulkan', 'linux-x64-cpu'],
       context,
     );
-    expect(result.target).toBe('linux-x64-cpu');
+    expect(result?.target).toBe('linux-x64-cpu');
   });
 
   it('picks the matching ik_llama cpu variant', () => {
@@ -50,7 +48,7 @@ describe('selectAsset', () => {
       ['linux-x64-cpu'],
       { ...context, cpu: 'avx512' },
     );
-    expect(result.asset.name).toBe('ik_llama-main-x-bin-ubuntu-x64-avx512.zip');
+    expect(result?.asset.name).toBe('ik_llama-main-x-bin-ubuntu-x64-avx512.zip');
   });
 
   it('ignores cudart-only assets', () => {
@@ -63,27 +61,30 @@ describe('selectAsset', () => {
       ['linux-x64-cuda'],
       context,
     );
-    expect(result.asset.name).toBe('llama-b1-bin-ubuntu-cuda-12.8-x64.tar.gz');
+    expect(result?.asset.name).toBe('llama-b1-bin-ubuntu-cuda-12.8-x64.tar.gz');
   });
 });
 
 describe('candidateTargets', () => {
   it('puts cuda first for a linux nvidia machine', () => {
-    expect(
-      candidateTargets({ os: 'linux', arch: 'x64', gpu: { vendor: 'nvidia' } }),
-    ).toEqual(['linux-x64-cuda', 'linux-x64-vulkan', 'linux-x64-cpu']);
+    expect(candidateTargets({ os: 'linux', arch: 'x64', gpu: { vendor: 'nvidia', name: null, cuda: null } })).toEqual([
+      'linux-x64-cuda',
+      'linux-x64-vulkan',
+      'linux-x64-cpu',
+    ]);
   });
 
   it('uses metal on apple silicon', () => {
-    expect(
-      candidateTargets({ os: 'darwin', arch: 'arm64', gpu: { vendor: 'apple' } }),
-    ).toEqual(['darwin-arm64-metal', 'darwin-x64-cpu']);
+    expect(candidateTargets({ os: 'darwin', arch: 'arm64', gpu: { vendor: 'apple', name: null, cuda: null } })).toEqual([
+      'darwin-arm64-metal',
+      'darwin-x64-cpu',
+    ]);
   });
 
   it('uses cpu when no gpu is present', () => {
-    expect(
-      candidateTargets({ os: 'linux', arch: 'x64', gpu: { vendor: 'none' } }),
-    ).toEqual(['linux-x64-cpu']);
+    expect(candidateTargets({ os: 'linux', arch: 'x64', gpu: { vendor: 'none', name: null, cuda: null } })).toEqual([
+      'linux-x64-cpu',
+    ]);
   });
 });
 
@@ -92,7 +93,7 @@ describe('variantTargets', () => {
     os: 'linux',
     arch: 'x64',
     cpu: 'avx2',
-    gpu: { vendor: 'nvidia' },
+    gpu: { vendor: 'nvidia', name: null, cuda: '12.8' },
     targets: ['linux-x64-cuda', 'linux-x64-vulkan', 'linux-x64-cpu'],
   };
 
@@ -106,18 +107,16 @@ describe('variantTargets', () => {
   });
 
   it('rejects vulkan on arm', () => {
-    expect(variantTargets('vulkan', { os: 'linux', arch: 'arm64', targets: [] })).toEqual([]);
+    expect(variantTargets('vulkan', { ...nvidia, arch: 'arm64', targets: [] })).toEqual([]);
   });
 });
 
 describe('recommendBackend', () => {
-  const defaults = manifest.defaults;
-
   it('picks ik_llama.cpp for cpu-only x86', () => {
     expect(
       recommendBackend(
-        { os: 'linux', arch: 'x64', cpu: 'avx2', gpu: { vendor: 'none' } },
-        defaults,
+        { os: 'linux', arch: 'x64', cpu: 'avx2', gpu: { vendor: 'none', name: null, cuda: null }, targets: [] },
+        manifest.defaults,
       ),
     ).toBe('ik-llama-cpp');
   });
@@ -125,8 +124,8 @@ describe('recommendBackend', () => {
   it('picks llama.cpp when a discrete gpu is present', () => {
     expect(
       recommendBackend(
-        { os: 'linux', arch: 'x64', cpu: 'avx2', gpu: { vendor: 'nvidia' } },
-        defaults,
+        { os: 'linux', arch: 'x64', cpu: 'avx2', gpu: { vendor: 'nvidia', name: null, cuda: null }, targets: [] },
+        manifest.defaults,
       ),
     ).toBe('llama-cpp');
   });

@@ -1,13 +1,14 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import type { GpuInfo, ManifestDefaults, Target } from './types.js';
 
 const RUN_OPTIONS = {
-  encoding: 'utf8',
+  encoding: 'utf8' as const,
   timeout: 2500,
-  stdio: ['ignore', 'pipe', 'ignore'],
+  stdio: ['ignore', 'pipe', 'ignore'] as Array<'ignore' | 'pipe'>,
 };
 
-export function run(command, args) {
+export function run(command: string, args: string[]): string | null {
   try {
     return execFileSync(command, args, RUN_OPTIONS).trim();
   } catch {
@@ -15,7 +16,7 @@ export function run(command, args) {
   }
 }
 
-function detectCpu() {
+function detectCpu(): string | null {
   if (process.arch !== 'x64') return null;
 
   if (process.platform === 'linux') {
@@ -37,15 +38,18 @@ function detectCpu() {
   return 'avx2';
 }
 
-function firstGpuLine(output) {
-  const line = output
-    .split('\n')
-    .map((entry) => entry.trim())
-    .find((entry) => /vga|3d controller|display|geforce|radeon|arc/i.test(entry));
-  return line ?? output.split('\n')[0]?.trim() ?? null;
+function firstGpuLine(output: string): string | null {
+  return (
+    output
+      .split('\n')
+      .map((entry) => entry.trim())
+      .find((entry) => /vga|3d controller|display|geforce|radeon|arc/i.test(entry)) ??
+    output.split('\n')[0]?.trim() ??
+    null
+  );
 }
 
-function detectGpu() {
+function detectGpu(): GpuInfo {
   if (process.platform === 'darwin') {
     return { vendor: 'apple', name: 'Apple GPU', cuda: null };
   }
@@ -53,7 +57,7 @@ function detectGpu() {
   const nvidia = run('nvidia-smi', ['--query-gpu=name', '--format=csv,noheader']);
   if (nvidia) {
     const cuda = /CUDA Version:\s*([\d.]+)/.exec(run('nvidia-smi', []) ?? '')?.[1] ?? null;
-    return { vendor: 'nvidia', name: nvidia.split('\n')[0], cuda };
+    return { vendor: 'nvidia', name: nvidia.split('\n')[0] ?? null, cuda };
   }
 
   const rocmInfo = run('rocminfo', []);
@@ -88,7 +92,7 @@ function detectGpu() {
   return { vendor: 'none', name: null, cuda: null };
 }
 
-export function candidateTargets({ os, arch, gpu }) {
+export function candidateTargets({ os, arch, gpu }: Pick<Target, 'os' | 'arch' | 'gpu'>): string[] {
   if (os === 'darwin') {
     return arch === 'arm64' ? ['darwin-arm64-metal', 'darwin-x64-cpu'] : ['darwin-x64-cpu'];
   }
@@ -118,7 +122,7 @@ export function candidateTargets({ os, arch, gpu }) {
   return [];
 }
 
-export function detectTarget() {
+export function detectTarget(): Target {
   const os = process.platform;
   const arch = process.arch;
   const cpu = detectCpu();
@@ -126,16 +130,14 @@ export function detectTarget() {
   return { os, arch, cpu, gpu, targets: candidateTargets({ os, arch, gpu }) };
 }
 
-export const VARIANTS = ['auto', 'cpu', 'vulkan', 'cuda', 'rocm', 'metal'];
-
-function osPrefix(os) {
+function osPrefix(os: string): string {
   if (os === 'win32') return 'win';
   if (os === 'darwin') return 'darwin';
   return 'linux';
 }
 
 // Turn a user-facing variant into ordered candidate target keys.
-export function variantTargets(variant, target) {
+export function variantTargets(variant: string, target: Target): string[] {
   const { os, arch } = target;
   const prefix = osPrefix(os);
 
@@ -163,9 +165,8 @@ export function variantTargets(variant, target) {
 }
 
 // Pick a default backend from the hardware profile (policy lives in backends.json).
-export function recommendBackend(target, defaults) {
-  const cpuOnlyVendors = defaults.cpuOnlyVendors ?? [];
-  const cpuOnly = cpuOnlyVendors.includes(target.gpu.vendor);
+export function recommendBackend(target: Target, defaults: ManifestDefaults): string {
+  const cpuOnly = defaults.cpuOnlyVendors.includes(target.gpu.vendor);
   if (cpuOnly && target.arch === 'x64' && target.cpu) return defaults.cpuOnly;
   return defaults.gpu;
 }

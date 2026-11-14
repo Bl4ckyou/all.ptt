@@ -1,10 +1,13 @@
 import { readFile } from 'node:fs/promises';
+import { delimiter, resolve } from 'node:path';
 import type { ProviderConfig } from '@ptt/providers';
 
 export interface AppConfig {
   host: string;
   port: number;
   providers: ProviderConfig[];
+  backendRoot: string;
+  modelDirs: string[];
 }
 
 const defaults: AppConfig = {
@@ -13,6 +16,8 @@ const defaults: AppConfig = {
   providers: [
     { id: 'llama-cpp', kind: 'llama-cpp', baseUrl: 'http://127.0.0.1:8080/v1' },
   ],
+  backendRoot: process.cwd(),
+  modelDirs: [],
 };
 
 async function readConfigFile(path: string): Promise<Partial<AppConfig>> {
@@ -32,5 +37,9 @@ export async function loadConfig(): Promise<AppConfig> {
     host: env.PTT_HOST ?? file.host ?? defaults.host,
     port: env.PTT_PORT ? Number(env.PTT_PORT) : (file.port ?? defaults.port),
     providers: file.providers ?? defaults.providers,
+    backendRoot: resolve(env.PTT_BACKEND_ROOT ?? file.backendRoot ?? defaults.backendRoot),
+    modelDirs: env.PTT_MODEL_DIRS
+      ? env.PTT_MODEL_DIRS.split(delimiter).filter(Boolean)
+      : (file.modelDirs ?? defaults.modelDirs),
   };
 }

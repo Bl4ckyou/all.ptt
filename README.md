@@ -109,6 +109,26 @@ Detection is best-effort: NVIDIA via `nvidia-smi`, AMD via `rocminfo`/`rocm-smi`
 Intel/others via `lspci` (Linux) or WMI (Windows), Apple Metal on macOS. Set
 `GITHUB_TOKEN` to avoid GitHub API rate limits.
 
+## Managing from the UI
+
+Open the **Manage** tab in the sidebar:
+
+- see detected hardware and the recommended backend;
+- install or update a backend variant with one click;
+- scan the Hugging Face cache for GGUF models;
+- launch a model with an installed backend (a free port is picked automatically);
+- stop a running backend.
+
+Extra model folders can be configured in `config.json`:
+
+```json
+{
+  "modelDirs": ["/path/to/models"]
+}
+```
+
+`PTT_MODEL_DIRS` (path-delimiter separated) and `PTT_BACKEND_ROOT` override these.
+
 ## Development
 
 ```bash

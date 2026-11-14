@@ -6,6 +6,7 @@
   "dependencies": {
     "@ptt/core": "*",
     "@ptt/i18n": "*",
-    "@ptt/providers": "*"
+    "@ptt/providers": "*",
+    "@ptt/backends": "*"
   }
 }

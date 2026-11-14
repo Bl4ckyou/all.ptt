@@ -1,5 +1,9 @@
 import type { ChatEvent, ChatMessage, ModelInfo } from '@ptt/core';
-import type { ProviderSummary } from './state.js';
+import type {
+  BackendsInfo,
+  LocalModelInfo,
+  ProviderSummary,
+} from './types.js';
 
 export interface LocaleMeta {
   defaultLocale: string;
@@ -28,6 +32,62 @@ export async function getModels(): Promise<{ models: ModelInfo[]; errors: string
   const response = await fetch('/api/models');
   if (!response.ok) throw new Error('failed to load models');
   return (await response.json()) as { models: ModelInfo[]; errors: string[] };
+}
+
+export async function getBackends(): Promise<BackendsInfo> {
+  const response = await fetch('/api/backends');
+  if (!response.ok) throw new Error('failed to load backends');
+  return (await response.json()) as BackendsInfo;
+}
+
+export async function installBackend(id: string, variant: string): Promise<void> {
+  const response = await fetch('/api/backends/install', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ id, variant }),
+  });
+  if (!response.ok) throw new Error('backend install failed');
+}
+
+export async function updateBackends(): Promise<void> {
+  const response = await fetch('/api/backends/update', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{}',
+  });
+  if (!response.ok) throw new Error('backend update failed');
+}
+
+export async function getLocalModels(): Promise<{ models: LocalModelInfo[] }> {
+  const response = await fetch('/api/models/local');
+  if (!response.ok) throw new Error('failed to scan models');
+  return (await response.json()) as { models: LocalModelInfo[] };
+}
+
+export interface LaunchResult {
+  providerId: string;
+  backendId: string;
+  port: number;
+  modelPath: string;
+}
+
+export async function launchBackend(backendId: string, modelPath: string): Promise<LaunchResult> {
+  const response = await fetch('/api/backends/launch', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ backendId, modelPath }),
+  });
+  if (!response.ok) throw new Error('backend launch failed');
+  return (await response.json()) as LaunchResult;
+}
+
+export async function stopBackend(providerId: string): Promise<void> {
+  const response = await fetch('/api/backends/stop', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ providerId }),
+  });
+  if (!response.ok) throw new Error('backend stop failed');
 }
 
 export interface ChatRequestBody {

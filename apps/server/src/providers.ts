@@ -17,4 +17,12 @@ export class ProviderRegistry {
   get(id: string): ProviderAdapter | undefined {
     return this.providers.get(id);
   }
+
+  add(provider: ProviderAdapter): void {
+    this.providers.set(provider.id, provider);
+  }
+
+  remove(id: string): void {
+    this.providers.delete(id);
+  }
 }

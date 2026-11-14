@@ -3,12 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { zipSync } from 'fflate';
 import { afterEach, describe, expect, it } from 'vitest';
-import { extractArchive } from './archive.mjs';
-import { findBinary } from './find-binary.mjs';
+import { extractArchive } from './archive.js';
+import { findBinary } from './find-binary.js';
 
-const temporaryDirectories = [];
+const temporaryDirectories: string[] = [];
 
-async function workspace() {
+async function workspace(): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), 'ptt-backends-'));
   temporaryDirectories.push(directory);
   return directory;
@@ -31,7 +31,7 @@ describe('extractArchive', () => {
     const binary = await findBinary(output, ['llama-server']);
 
     expect(binary).not.toBeNull();
-    expect([...(await readFile(binary))]).toEqual([1, 2, 3]);
+    expect([...(await readFile(binary as string))]).toEqual([1, 2, 3]);
   });
 
   it('does not write outside the destination', async () => {

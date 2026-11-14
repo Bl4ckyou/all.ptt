@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { BackendLauncher, loadManifest } from '@ptt/backends';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
 import { webAssets } from './generated/assets.js';
@@ -7,7 +8,22 @@ import { serveStatic } from './static.js';
 
 const config = await loadConfig();
 const registry = new ProviderRegistry(config.providers);
-const app = createApp(registry);
+const launcher = new BackendLauncher(config.backendRoot, (providerId) => registry.remove(providerId));
+const context = {
+  registry,
+  launcher,
+  manifest: loadManifest(),
+  root: config.backendRoot,
+  modelDirs: config.modelDirs,
+};
+const app = createApp(context);
+
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.on(signal, () => {
+    launcher.stopAll();
+    process.exit(0);
+  });
+}
 
 const server = createServer(async (req, res) => {
   try {
@@ -38,6 +54,7 @@ server.listen(config.port, config.host, () => {
     console.log(`  web UI: ${webCount} assets`);
   }
   console.log(`  config: ${process.env.PTT_CONFIG ?? 'config.json'} (optional)`);
+  console.log(`  backends: ${config.backendRoot}/.backends`);
   for (const provider of registry.all()) {
     console.log(`  provider: ${provider.id}`);
   }

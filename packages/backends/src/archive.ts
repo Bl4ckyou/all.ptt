@@ -3,13 +3,13 @@ import { dirname, join, normalize } from 'node:path';
 import { unzipSync } from 'fflate';
 import { x as extractTar } from 'tar';
 
-function safePath(base, entry) {
+function safePath(base: string, entry: string): string | null {
   const cleaned = normalize(entry).replace(/^([/\\])+/, '');
   if (cleaned.startsWith('..')) return null;
   return join(base, cleaned);
 }
 
-async function extractZip(file, destination) {
+async function extractZip(file: string, destination: string): Promise<void> {
   const entries = unzipSync(new Uint8Array(await readFile(file)));
 
   for (const [entry, bytes] of Object.entries(entries)) {
@@ -26,7 +26,7 @@ async function extractZip(file, destination) {
   }
 }
 
-export async function extractArchive(file, destination) {
+export async function extractArchive(file: string, destination: string): Promise<void> {
   await mkdir(destination, { recursive: true });
 
   if (file.endsWith('.zip')) {

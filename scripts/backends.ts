@@ -1,20 +1,23 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { detectTarget, recommendBackend, VARIANTS } from './backends/detect.mjs';
-import { formatBytes, splitList, syncBackend } from './backends/install.mjs';
+import {
+  VARIANTS,
+  detectTarget,
+  formatBytes,
+  loadManifest,
+  recommendBackend,
+  splitList,
+  syncBackend,
+} from '@ptt/backends';
 
-const root = fileURLToPath(new URL('..', import.meta.url));
-const manifest = JSON.parse(await readFile(join(root, 'backends.json'), 'utf8'));
+const manifest = loadManifest();
 
 let command = 'info';
 let commandSet = false;
-let variantOption;
-let targetOverride;
-let version;
+let variantOption: string | undefined;
+let targetOverride: string | undefined;
+let version: string | undefined;
 let force = false;
 let dryRun = false;
-const ids = [];
+const ids: string[] = [];
 
 const argv = process.argv.slice(2);
 for (let index = 0; index < argv.length; index++) {
@@ -38,7 +41,7 @@ for (let index = 0; index < argv.length; index++) {
 }
 
 const variants = splitList(variantOption);
-const invalidVariant = variants.find((variant) => !VARIANTS.includes(variant));
+const invalidVariant = variants.find((variant) => !(VARIANTS as readonly string[]).includes(variant));
 if (invalidVariant) {
   console.error(`unknown variant: ${invalidVariant} (expected: ${VARIANTS.join(', ')})`);
   process.exit(1);
@@ -47,8 +50,9 @@ if (invalidVariant) {
 const target = detectTarget();
 if (targetOverride) target.targets = [targetOverride];
 const token = process.env.GITHUB_TOKEN;
+const root = process.cwd();
 
-function printTarget() {
+function printTarget(): void {
   const gpu = target.gpu;
   const name = gpu.name ? ` (${gpu.name})` : '';
   const cuda = gpu.cuda ? ` cuda ${gpu.cuda}` : '';
@@ -59,27 +63,7 @@ function printTarget() {
   console.log(`recommended: ${recommendBackend(target, manifest.defaults)}`);
 }
 
-function report(result) {
-  if (result.skipped) {
-    console.log(`  nothing to do: ${result.reason}`);
-    return;
-  }
-
-  for (const record of result.records) {
-    if (record.skipped) {
-      console.log(`  ${record.variant}: up to date (${record.tag})`);
-    } else if (record.dryRun) {
-      console.log(
-        `  ${record.variant}: would install ${record.asset} [${record.tag}] -> ${record.target} (${formatBytes(record.size)})`,
-      );
-    } else {
-      console.log(`  ${record.variant}: installed ${record.asset} [${record.tag}] -> ${record.target}`);
-      console.log(`    binary: ${record.binary}`);
-    }
-  }
-}
-
-async function sync(mode, selectedIds) {
+async function sync(mode: 'install' | 'update', selectedIds: string[]): Promise<void> {
   printTarget();
   for (const id of selectedIds) {
     const backend = manifest.backends[id];
@@ -103,9 +87,25 @@ async function sync(mode, selectedIds) {
         dryRun,
         token,
       });
-      report(result);
+
+      if (result.skipped) {
+        console.log(`  nothing to do: ${result.reason}`);
+        continue;
+      }
+      for (const record of result.records) {
+        if (record.skipped) {
+          console.log(`  ${record.variant}: up to date (${record.tag})`);
+        } else if (record.dryRun) {
+          console.log(
+            `  ${record.variant}: would install ${record.asset} [${record.tag}] -> ${record.target} (${formatBytes(record.size)})`,
+          );
+        } else {
+          console.log(`  ${record.variant}: installed ${record.asset} [${record.tag}] -> ${record.target}`);
+          console.log(`    binary: ${record.binary}`);
+        }
+      }
     } catch (error) {
-      console.error(`  failed: ${error.message}`);
+      console.error(`  failed: ${(error as Error).message}`);
       process.exitCode = 1;
     }
   }
@@ -124,7 +124,7 @@ if (command === 'info') {
   await sync('update', ids.length > 0 ? ids : Object.keys(manifest.backends));
 } else {
   console.error(
-    'usage: node scripts/backends.mjs <info|list|install|update> [ids...] [--variant <auto|cpu|vulkan|cuda|rocm|metal>] [--version <tag>] [--target <target>] [--force] [--dry-run]',
+    'usage: tsx scripts/backends.ts <info|list|install|update> [ids...] [--variant <auto|cpu|vulkan|cuda|rocm|metal>] [--version <tag>] [--target <target>] [--force] [--dry-run]',
   );
   process.exitCode = 1;
 }
