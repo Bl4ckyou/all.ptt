@@ -4,11 +4,6 @@ let flowerInstance = 0;
 
 const FLOWER_MARKUP = `
   <defs>
-    <linearGradient id="leafGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-      <stop offset="0%" stop-color="#2d6a4f" />
-      <stop offset="100%" stop-color="#52b788" />
-    </linearGradient>
-
     <linearGradient id="outerPetalGrad" x1="0%" y1="100%" x2="0%" y2="0%">
       <stop offset="0%" stop-color="#e63973" />
       <stop offset="55%" stop-color="#ff85a9" />
@@ -38,11 +33,6 @@ const FLOWER_MARKUP = `
       <stop offset="100%" stop-color="#f77f00" />
     </radialGradient>
 
-    <g id="leaf">
-      <path d="M 0,0 C -18,-28 -16,-68 0,-90 C 16,-68 18,-28 0,0 Z" fill="url(#leafGrad)" />
-      <path d="M 0,-12 L 0,-80" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6" />
-    </g>
-
     <path id="outerPetal" d="M 0,0 C -20,-24 -22,-66 0,-82 C 22,-66 20,-24 0,0 Z" fill="url(#outerPetalGrad)" stroke="#ff4d88" stroke-width="0.5" />
 
     <path id="midPetal" d="M 0,0 C -17,-20 -19,-52 0,-65 C 19,-52 17,-20 0,0 Z" fill="url(#midPetalGrad)" stroke="#e63973" stroke-width="0.5" />
@@ -56,15 +46,6 @@ const FLOWER_MARKUP = `
   </defs>
 
   <g transform="translate(105, 105)">
-    <g>
-      <use href="#leaf" transform="rotate(10)" />
-      <use href="#leaf" transform="rotate(70)" />
-      <use href="#leaf" transform="rotate(130)" />
-      <use href="#leaf" transform="rotate(190)" />
-      <use href="#leaf" transform="rotate(250)" />
-      <use href="#leaf" transform="rotate(310)" />
-    </g>
-
     <g>
       <use href="#outerPetal" transform="rotate(0)" />
       <use href="#outerPetal" transform="rotate(30)" />
@@ -161,18 +142,53 @@ export function flowerSvg(
   return svg;
 }
 
-export function flowerMap(labels: string[]): HTMLElement {
-  const map = document.createElement('div');
-  map.className = 'flower-map';
-  map.append(flowerSvg('flower-map-art'));
+export function leafSvg(className = 'decor-leaf'): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '-24 -96 48 104');
+  svg.setAttribute('class', className);
+  svg.setAttribute('aria-hidden', 'true');
+  flowerInstance += 1;
+  svg.innerHTML = scopeIds(
+    `
+    <defs>
+      <linearGradient id="leafGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+        <stop offset="0%" stop-color="#2d6a4f" />
+        <stop offset="100%" stop-color="#52b788" />
+      </linearGradient>
+    </defs>
+    <path d="M 0,0 C -18,-28 -16,-68 0,-90 C 16,-68 18,-28 0,0 Z" fill="url(#leafGrad)" />
+    <path d="M 0,-12 L 0,-80" stroke="#74c69d" stroke-width="1.2" stroke-linecap="round" opacity="0.6" />
+    `,
+    `leaf-${flowerInstance}`,
+  );
+  return svg;
+}
 
-  const positions = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
-  labels.slice(0, positions.length).forEach((label, index) => {
-    const chip = document.createElement('span');
-    chip.className = `flower-label ${positions[index]}`;
-    chip.textContent = label;
-    map.append(chip);
+const LEAF_SPECS = [
+  { left: '-2%', top: '6%', rotate: -25, scale: 1, opacity: 0.32 },
+  { left: '5%', top: '68%', rotate: 40, scale: 1.15, opacity: 0.28 },
+  { left: '91%', top: '14%', rotate: 115, scale: 1.2, opacity: 0.3 },
+  { left: '84%', top: '76%', rotate: -65, scale: 0.9, opacity: 0.28 },
+  { left: '44%', top: '-4%', rotate: 65, scale: 0.7, opacity: 0.2 },
+  { left: '-3%', top: '44%', rotate: -105, scale: 0.75, opacity: 0.2 },
+  { left: '70%', top: '96%', rotate: 15, scale: 0.65, opacity: 0.18 },
+];
+
+export function createLeafLayer(): HTMLElement {
+  const layer = document.createElement('div');
+  layer.className = 'leaf-layer';
+
+  LEAF_SPECS.forEach((spec, index) => {
+    const holder = document.createElement('div');
+    holder.className = 'leaf-holder';
+    holder.style.left = spec.left;
+    holder.style.top = spec.top;
+    holder.style.opacity = String(spec.opacity);
+    holder.style.transform = `rotate(${spec.rotate}deg) scale(${spec.scale})`;
+    holder.style.animationDelay = `${index * 1.3}s`;
+    holder.append(leafSvg());
+    layer.append(holder);
   });
 
-  return map;
+  return layer;
 }

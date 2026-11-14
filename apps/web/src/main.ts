@@ -32,6 +32,7 @@ import {
   updateProject as updateProjectRequest,
 } from './api.js';
 import { el } from './dom.js';
+import { createLeafLayer } from './flower.js';
 import { loadI18n, readStoredLocale, storeLocale } from './i18n.js';
 import { notify, state, subscribe } from './state.js';
 import type {
@@ -596,7 +597,7 @@ async function bootstrap(): Promise<void> {
   }
 
   const layout = el('div', { class: 'layout' }, [sidebar.element, chat.element, manage.element]);
-  root.replaceChildren(el('div', { class: 'shell' }, [jobBar.element, layout]));
+  root.replaceChildren(createLeafLayer(), el('div', { class: 'shell' }, [jobBar.element, layout]));
 
   subscribe(() => {
     sidebar.update();

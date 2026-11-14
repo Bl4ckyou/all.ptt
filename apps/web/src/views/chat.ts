@@ -1,6 +1,6 @@
 import type { Actions } from '../actions.js';
 import { el } from '../dom.js';
-import { flowerMap } from '../flower.js';
+import { flowerSvg } from '../flower.js';
 import { t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { state } from '../state.js';
@@ -44,16 +44,7 @@ export function createChat(actions: Actions): Chat {
     if (state.messages.length === 0) {
       messagesEl.replaceChildren(
         el('div', { class: 'flower-empty' }, [
-          flowerMap([
-            t('feature-chat'),
-            t('feature-models'),
-            t('feature-backends'),
-            t('feature-projects'),
-            t('feature-i18n'),
-            t('feature-context'),
-            t('feature-speculation'),
-            t('feature-local'),
-          ]),
+          flowerSvg('empty-flower'),
           el('p', { class: 'empty-text', text: t('chat-empty') }),
         ]),
       );
