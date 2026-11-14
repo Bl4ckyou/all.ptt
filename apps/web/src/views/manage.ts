@@ -208,17 +208,39 @@ export function createManage(actions: Actions): Manage {
           ? state.auxiliary.filter((file) => file.kind === 'mtp')
           : state.localModels;
 
-    // Only keep files that actually relate to the selected model.
-    const relevant = candidates
-      .map((file) => ({ file, score: modelMatchScore(file, configModel) }))
-      .filter((entry) => entry.score > 0)
-      .sort((a, b) => b.score - a.score || a.file.name.localeCompare(b.file.name))
-      .map((entry) => entry.file);
+    const CATEGORY_RANK: Record<string, number> = {
+      assistant: 0,
+      dflash: 0,
+      dspark: 0,
+      mtp: 0,
+      other: 1,
+    };
+
+    const scored = candidates.map((file) => ({
+      file,
+      score: modelMatchScore(file, configModel),
+    }));
+
+    const base =
+      setting.fileKind === 'mmproj'
+        ? scored
+            .filter((entry) => entry.score > 0)
+            .sort((a, b) => b.score - a.score || a.file.name.localeCompare(b.file.name))
+            .map((entry) => entry.file)
+        : scored
+            .sort(
+              (a, b) =>
+                b.score - a.score ||
+                (CATEGORY_RANK[draftCategory(a.file.name)] ?? 1) -
+                  (CATEGORY_RANK[draftCategory(b.file.name)] ?? 1) ||
+                a.file.name.localeCompare(b.file.name),
+            )
+            .map((entry) => entry.file);
 
     const categories =
       setting.fileKind === 'model'
         ? (['assistant', 'dflash', 'dspark', 'mtp', 'other'] as const).filter((category) =>
-            relevant.some((file) => draftCategory(file.name) === category),
+            base.some((file) => draftCategory(file.name) === category),
           )
         : [];
     let activeCategory: string = 'all';
@@ -271,7 +293,7 @@ export function createManage(actions: Actions): Manage {
 
     function refresh(): void {
       const term = input.value.trim().toLowerCase();
-      let pool = relevant;
+      let pool = base;
 
       if (activeCategory !== 'all') {
         pool = pool.filter((file) => draftCategory(file.name) === activeCategory);
@@ -289,7 +311,7 @@ export function createManage(actions: Actions): Manage {
         suggestions.replaceChildren(
           el('p', {
             class: 'manage-line muted',
-            text: relevant.length === 0 ? t('manage-no-matching-file') : t('manage-no-results'),
+            text: base.length === 0 ? t('manage-no-matching-file') : t('manage-no-results'),
           }),
         );
         return;
@@ -510,9 +532,14 @@ export function createManage(actions: Actions): Manage {
 
     if (backendSelectEl) backendSelectEl.value = configBackend;
     configError = null;
-    settingsHost?.replaceChildren(
-      el('p', { class: 'manage-busy' }, [icon('sparkles', 'icon small'), t('status-loading')]),
-    );
+    const hadContent = (settingsHost?.childElementCount ?? 0) > 0;
+    if (hadContent) {
+      settingsHost?.classList.add('loading');
+    } else {
+      settingsHost?.replaceChildren(
+        el('p', { class: 'manage-busy' }, [icon('sparkles', 'icon small'), t('status-loading')]),
+      );
+    }
     updateEstimate();
 
     try {
@@ -542,12 +569,13 @@ export function createManage(actions: Actions): Manage {
     }
 
     if (extraInputEl) extraInputEl.value = configExtra;
+    settingsHost?.classList.remove('loading');
     renderSettings();
     updateEstimate();
   }
 
   function closeConfig(): void {
-    configNode?.remove();
+    const node = configNode;
     configNode = null;
     configModel = null;
     settingsHost = null;
@@ -555,6 +583,11 @@ export function createManage(actions: Actions): Manage {
     backendSelectEl = null;
     extraInputEl = null;
     saveButtonEl = null;
+
+    if (node) {
+      node.classList.add('closing');
+      setTimeout(() => node.remove(), 170);
+    }
   }
 
   function buildConfigModal(model: LocalModelInfo): HTMLElement {
@@ -593,10 +626,15 @@ export function createManage(actions: Actions): Manage {
       { class: 'modal', on: { click: (event) => event.stopPropagation() } },
       [
         el('div', { class: 'modal-head' }, [
-          el('h3', { class: 'manage-title' }, [icon('model', 'icon small'), t('manage-model-config')]),
+          el('div', { class: 'modal-heading' }, [
+            el('h3', { class: 'modal-title', text: model.name }),
+            el('span', { class: 'modal-subtitle' }, [
+              icon('model', 'icon small'),
+              t('manage-model-config'),
+            ]),
+          ]),
           iconButton('x', t('manage-config-cancel'), closeConfig),
         ]),
-        el('p', { class: 'modal-title', text: model.name }),
         estimateEl,
         el('label', { class: 'field' }, [
           el('span', { class: 'field-label' }, [icon('server', 'icon small'), t('manage-launch-with')]),

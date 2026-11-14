@@ -922,6 +922,11 @@ select.control {
   padding: 20px;
   background: rgba(74, 39, 56, 0.34);
   backdrop-filter: blur(4px);
+  animation: backdrop-in 0.18s ease;
+}
+
+.modal-backdrop.closing {
+  animation: backdrop-out 0.16s ease forwards;
 }
 
 .modal {
@@ -936,6 +941,36 @@ select.control {
   border-radius: 20px;
   background: var(--panel);
   box-shadow: 0 30px 80px rgba(74, 39, 56, 0.3);
+  animation: modal-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes backdrop-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .modal-head {
@@ -947,11 +982,30 @@ select.control {
 
 .modal-title {
   margin: 0;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.modal-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.modal-subtitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
 }
 
 .modal-foot {
@@ -976,6 +1030,12 @@ select.control {
   max-height: 48vh;
   overflow-y: auto;
   padding-right: 4px;
+  transition: opacity 0.15s ease;
+}
+
+.settings-host.loading {
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 .settings-host.fade-in {
