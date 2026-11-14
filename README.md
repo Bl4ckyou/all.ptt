@@ -131,7 +131,9 @@ ranked by the model's repository and name so the relevant projectors come first.
 Speculative decoding supports file-less types (n-gram, suffix, MTP) with parameters
 that appear only for the selected type. GGUF files are classified from their
 metadata (`general.architecture`, `general.type`, `general.tags`), so renamed
-MTP/assistant/mmproj files are still detected correctly. OS-specific options (for
+MTP/assistant/mmproj files are still detected correctly. Draft matching also
+compares the base architecture and context length, so an E2B model only offers
+E2B MTP files and not 26B or unrelated ones. OS-specific options (for
 example Linux-only CPU affinity) are hidden on other platforms. Settings are saved
 per model in `.ptt/model-configs.json` and applied when the model is launched.
 

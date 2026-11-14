@@ -48,13 +48,13 @@ function buildGguf(): Buffer {
     entry('general.name', 8, ggufString('Test Model')),
     entry('general.basename', 8, ggufString('test-baseline')),
     entry('general.tags', 9, tags),
-    entry('tokenizer.ggml.tokens', 9, tokens),
     entry('llama.block_count', 4, u32(32)),
     entry('llama.embedding_length', 4, u32(4096)),
     entry('llama.attention.head_count', 4, u32(32)),
     entry('llama.attention.head_count_kv', 9, Buffer.concat([u32(4), u64(1), u32(8)])),
     entry('llama.context_length', 4, u32(8192)),
     entry('llama.vocab_size', 4, u32(32000)),
+    entry('tokenizer.ggml.tokens', 9, tokens),
   ];
 
   return Buffer.concat([
@@ -109,48 +109,51 @@ describe('readGgufSignature', () => {
     expect(signature.name).toBe('Test Model');
     expect(signature.basename).toBe('test-baseline');
     expect(signature.tags).toEqual(['chat', 'test']);
+    expect(signature.blockCount).toBe(32);
+    expect(signature.embeddingLength).toBe(4096);
+    expect(signature.contextLength).toBe(8192);
   });
 });
 
 describe('classifyGguf', () => {
+  const sig = (partial: Partial<import('./gguf.js').GgufSignature>) => ({
+    architecture: null,
+    generalType: null,
+    name: null,
+    basename: null,
+    tags: [],
+    blockCount: null,
+    embeddingLength: null,
+    contextLength: null,
+    ...partial,
+  });
+
   it('detects mmproj from metadata even with an unrelated file name', () => {
     expect(
-      classifyGguf('whatever.gguf', {
-        architecture: 'clip',
-        generalType: 'mmproj',
-        name: null,
-        basename: null,
-        tags: [],
-      }),
+      classifyGguf('whatever.gguf', sig({ architecture: 'clip', generalType: 'mmproj' })),
     ).toEqual({ kind: 'mmproj', category: 'other' });
   });
 
   it('classifies assistant metadata when the file was renamed', () => {
     expect(
-      classifyGguf('renamed.gguf', {
-        architecture: 'gemma4-assistant',
-        generalType: 'model',
-        name: 'E2B Assistant',
-        basename: null,
-        tags: [],
-      }),
+      classifyGguf(
+        'renamed.gguf',
+        sig({ architecture: 'gemma4-assistant', generalType: 'model', name: 'E2B Assistant' }),
+      ),
     ).toEqual({ kind: 'model', category: 'assistant' });
   });
 
   it('prefers the mtp category when the metadata or name says mtp', () => {
     expect(
-      classifyGguf('mtp-gemma.gguf', {
-        architecture: 'gemma4-assistant',
-        generalType: 'model',
-        name: 'E2B Assistant',
-        basename: null,
-        tags: [],
-      }),
+      classifyGguf(
+        'mtp-gemma.gguf',
+        sig({ architecture: 'gemma4-assistant', generalType: 'model', name: 'E2B Assistant' }),
+      ),
     ).toEqual({ kind: 'model', category: 'mtp' });
   });
 
   it('recognizes dflash and dspark from metadata', () => {
-    const base = { generalType: 'model', name: null, basename: null, tags: [] };
+    const base = sig({ generalType: 'model' });
     expect(classifyGguf('a.gguf', { ...base, architecture: 'gemma4-dflash' }).category).toBe(
       'dflash',
     );
@@ -161,13 +164,10 @@ describe('classifyGguf', () => {
 
   it('keeps regular models as other', () => {
     expect(
-      classifyGguf('gemma.gguf', {
-        architecture: 'gemma4',
-        generalType: 'model',
-        name: 'Gemma',
-        basename: null,
-        tags: [],
-      }),
+      classifyGguf(
+        'gemma.gguf',
+        sig({ architecture: 'gemma4', generalType: 'model', name: 'Gemma' }),
+      ),
     ).toEqual({ kind: 'model', category: 'other' });
   });
 });

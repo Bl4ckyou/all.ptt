@@ -11,6 +11,10 @@ export interface LocalModel {
   size: number;
   source: string;
   category?: GgufCategory;
+  architecture?: string | null;
+  blockCount?: number | null;
+  embeddingLength?: number | null;
+  contextLength?: number | null;
 }
 
 export interface AuxiliaryFile extends LocalModel {
@@ -85,12 +89,13 @@ async function collect(
       const info = await stat(real);
       seen.add(real);
 
-      let classification;
+      let signature = null;
       try {
-        classification = classifyGguf(entry.name, await readGgufSignature(full));
+        signature = await readGgufSignature(full);
       } catch {
-        classification = classifyGguf(entry.name, null);
+        signature = null;
       }
+      const classification = classifyGguf(entry.name, signature);
 
       const kind: ScannedKind =
         classification.kind === 'mmproj'
@@ -105,6 +110,10 @@ async function collect(
         size: info.size,
         source,
         kind,
+        architecture: signature?.architecture ?? null,
+        blockCount: signature?.blockCount ?? null,
+        embeddingLength: signature?.embeddingLength ?? null,
+        contextLength: signature?.contextLength ?? null,
         ...(kind === 'draft' ? { category: classification.category } : {}),
       });
     } catch {
@@ -145,7 +154,6 @@ export async function scanLocalFiles(extraDirs: string[] = []): Promise<LocalFil
     .filter((file) => file.kind === 'mmproj')
     .map(({ kind: _kind, category: _category, ...rest }) => ({ ...rest, kind: 'mmproj' as const }))
     .sort((a, b) => a.name.localeCompare(b.name));
-
   return { models, drafts, auxiliary };
 }
 

@@ -3,7 +3,7 @@ import type { Actions } from '../actions.js';
 import { el, option } from '../dom.js';
 import { t } from '../i18n.js';
 import { icon, type IconName } from '../icons.js';
-import { draftCategory, modelMatchScore } from '../matching.js';
+import { draftCategory, draftMatchScore, mmprojMatchScore } from '../matching.js';
 import { state } from '../state.js';
 import type {
   BackendInfo,
@@ -228,24 +228,24 @@ export function createManage(actions: Actions): Manage {
 
     const scored = candidates.map((file) => ({
       file,
-      score: modelMatchScore(file, configModel),
+      score:
+        setting.fileKind === 'mmproj'
+          ? mmprojMatchScore(file, configModel)
+          : draftMatchScore(file, configModel),
     }));
 
-    const base =
-      setting.fileKind === 'mmproj'
-        ? scored
-            .filter((entry) => entry.score > 0)
-            .sort((a, b) => b.score - a.score || a.file.name.localeCompare(b.file.name))
-            .map((entry) => entry.file)
-        : scored
-            .sort(
-              (a, b) =>
-                b.score - a.score ||
-                (CATEGORY_RANK[categoryOf(a.file)] ?? 1) -
-                  (CATEGORY_RANK[categoryOf(b.file)] ?? 1) ||
-                a.file.name.localeCompare(b.file.name),
-            )
-            .map((entry) => entry.file);
+    const base = scored
+      .filter((entry) => entry.score > 0)
+      .sort(
+        (a, b) =>
+          b.score - a.score ||
+          (setting.fileKind === 'model'
+            ? (CATEGORY_RANK[categoryOf(a.file)] ?? 1) -
+              (CATEGORY_RANK[categoryOf(b.file)] ?? 1)
+            : 0) ||
+          a.file.name.localeCompare(b.file.name),
+      )
+      .map((entry) => entry.file);
 
     const categories =
       setting.fileKind === 'model'
@@ -566,7 +566,7 @@ export function createManage(actions: Actions): Manage {
       if (configValues.mmproj === undefined) {
         const ranked = state.auxiliary
           .filter((file) => file.kind === 'mmproj')
-          .map((file) => ({ file, score: modelMatchScore(file, model) }))
+          .map((file) => ({ file, score: mmprojMatchScore(file, model) }))
           .filter((entry) => entry.score > 0)
           .sort((a, b) => b.score - a.score);
 

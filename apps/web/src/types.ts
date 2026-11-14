@@ -58,6 +58,10 @@ export interface LocalModelInfo {
   size: number;
   source: string;
   category?: 'assistant' | 'dflash' | 'dspark' | 'mtp' | 'other';
+  architecture?: string | null;
+  blockCount?: number | null;
+  embeddingLength?: number | null;
+  contextLength?: number | null;
 }
 
 export interface AuxiliaryFile extends LocalModelInfo {

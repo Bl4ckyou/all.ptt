@@ -199,6 +199,9 @@ export interface GgufSignature {
   name: string | null;
   basename: string | null;
   tags: string[];
+  blockCount: number | null;
+  embeddingLength: number | null;
+  contextLength: number | null;
 }
 
 export interface GgufClassification {
@@ -216,6 +219,9 @@ function parseSignature(buffer: Buffer): GgufSignature {
     name: null,
     basename: null,
     tags: [],
+    blockCount: null,
+    embeddingLength: null,
+    contextLength: null,
   };
 
   let position = 0;
@@ -225,6 +231,12 @@ function parseSignature(buffer: Buffer): GgufSignature {
   const u32 = (): number => {
     ensure(4);
     const value = buffer.readUInt32LE(position);
+    position += 4;
+    return value;
+  };
+  const i32 = (): number => {
+    ensure(4);
+    const value = buffer.readInt32LE(position);
     position += 4;
     return value;
   };
@@ -287,6 +299,14 @@ function parseSignature(buffer: Buffer): GgufSignature {
     return items;
   };
 
+  const readNumber = (type: number): number | null => {
+    if (type === 4) return u32();
+    if (type === 5) return i32();
+    if (type === 10) return u64();
+    skipValue(type);
+    return null;
+  };
+
   try {
     if (buffer.length < 4 || buffer.toString('ascii', 0, 4) !== 'GGUF') return signature;
     position = 4;
@@ -303,10 +323,13 @@ function parseSignature(buffer: Buffer): GgufSignature {
       else if (key === 'general.name' && type === 8) signature.name = text();
       else if (key === 'general.basename' && type === 8) signature.basename = text();
       else if (key === 'general.tags' && type === 9) signature.tags = readStringArray() ?? [];
+      else if (key.endsWith('.block_count')) signature.blockCount = readNumber(type);
+      else if (key.endsWith('.embedding_length')) signature.embeddingLength = readNumber(type);
+      else if (key.endsWith('.context_length')) signature.contextLength = readNumber(type);
       else {
         skipValue(type);
         if (
-          !key.startsWith('general.') &&
+          key.startsWith('tokenizer.') &&
           (signature.architecture || signature.generalType || signature.name)
         ) {
           break;

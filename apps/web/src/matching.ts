@@ -23,11 +23,42 @@ export function nameTokens(name: string): Set<string> {
   );
 }
 
-// Score how likely a file belongs to the selected model.
-export function modelMatchScore(file: LocalModelInfo, model: LocalModelInfo | null): number {
+export function baseArchitecture(architecture: string | null | undefined): string {
+  return (architecture ?? '').toLowerCase().replace(/[-_](assistant|draft|dflash|dspark|mtp)$/, '');
+}
+
+// Match a multimodal projector to a model, using repository and name tokens.
+export function mmprojMatchScore(file: LocalModelInfo, model: LocalModelInfo | null): number {
   if (!model) return 0;
 
   let score = 0;
+  if (repositoryKey(file.path) === repositoryKey(model.path)) score += 100;
+
+  const modelTokens = nameTokens(model.name);
+  for (const token of nameTokens(file.name)) {
+    if (modelTokens.has(token)) score += 10;
+  }
+  return score;
+}
+
+// Match a draft/assistant model using GGUF metadata first, then names.
+export function draftMatchScore(file: LocalModelInfo, model: LocalModelInfo | null): number {
+  if (!model) return 0;
+
+  let score = 0;
+  const fileArchitecture = baseArchitecture(file.architecture);
+  const modelArchitecture = baseArchitecture(model.architecture);
+
+  if (fileArchitecture && modelArchitecture) {
+    if (fileArchitecture !== modelArchitecture) return 0;
+    score += 50;
+  }
+
+  if (file.contextLength && model.contextLength) {
+    if (file.contextLength !== model.contextLength) return 0;
+    score += 50;
+  }
+
   if (repositoryKey(file.path) === repositoryKey(model.path)) score += 100;
 
   const modelTokens = nameTokens(model.name);
