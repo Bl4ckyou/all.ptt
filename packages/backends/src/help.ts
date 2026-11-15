@@ -47,33 +47,74 @@ function enumChoices(token: string): string[] | null {
 }
 
 function looksNumber(token: string): boolean {
-  return /(^|[^A-Z])(N|NUM|INT|SIZE|COUNT|INDEX|PORT|LAYERS|GPU|THREADS?|CTX|TOKENS?)([^A-Z]|$)/.test(
+  if (/^[NFSIU]$/i.test(token)) return true;
+  return /(^|[^A-Z])(N|NUM|INT|SIZE|COUNT|INDEX|PORT|LAYERS|GPU|THREADS?|CTX|TOKENS?|FLOAT)([^A-Z]|$)/.test(
     token,
   );
 }
 
-function isMetavar(token: string): boolean {
-  if (!token || /\s/.test(token)) return false;
-  if (/^[<[{(]/.test(token)) return true;
-  if (/[|,]/.test(token)) return true;
-  return /^[A-Z][A-Z0-9_,.:=<>[\]{}-]*$/.test(token);
+function splitSpec(content: string): { spec: string; inline: string } {
+  const colon = content.match(/^(--[A-Za-z0-9-]+)\s*:\s+(.*)$/);
+  if (colon) return { spec: colon[1], inline: colon[2] };
+
+  const separator = /\s{2,}/g;
+  let match: RegExpExecArray | null;
+  while ((match = separator.exec(content))) {
+    const rest = content.slice(match.index).trim();
+    if (!/^-{1,2}[A-Za-z0-9]/.test(rest)) {
+      return { spec: content.slice(0, match.index), inline: rest };
+    }
+    if (!/\s{2,}/.test(rest)) {
+      // "-kvo,   --kv-offload, --no-kv-offload" is still spec.
+      // "--vision   --serve takes images too" is prose.
+      let afterAlias = false;
+      let specification = true;
+      for (const token of rest.split(/\s+/)) {
+        if (token.startsWith('-')) {
+          afterAlias = true;
+        } else if (afterAlias) {
+          afterAlias = false;
+        } else {
+          specification = false;
+          break;
+        }
+      }
+      if (!specification) return { spec: content.slice(0, match.index), inline: rest };
+    }
+  }
+  return { spec: content, inline: '' };
 }
 
-function splitRest(rest: string): { metavar: string; description: string } {
-  const value = rest.trim();
-  if (!value) return { metavar: '', description: '' };
+interface SpecGroup {
+  aliases: string[];
+  metavar: string;
+}
 
-  const parts = value.split(/\s{2,}/);
-  if (parts.length > 1) {
-    return {
-      metavar: isMetavar(parts[0]) ? parts[0] : '',
-      description: parts.slice(1).join(' '),
-    };
+function parseSpec(spec: string): SpecGroup[] {
+  const normalized = spec.replace(/,\s*(?=-)/g, ' ');
+  const groups: SpecGroup[] = [];
+  let aliases: string[] = [];
+  let metavar = '';
+
+  const push = (): void => {
+    if (aliases.length > 0) groups.push({ aliases, metavar });
+    aliases = [];
+    metavar = '';
+  };
+
+  for (const token of normalized.split(/\s+/).filter(Boolean)) {
+    if (token.startsWith('-')) {
+      if (aliases.length > 0 && metavar) push();
+      for (const part of token.split(',').filter(Boolean)) {
+        if (part.startsWith('-')) aliases.push(part);
+      }
+    } else {
+      metavar = metavar ? `${metavar} ${token}` : token;
+    }
   }
 
-  return isMetavar(value)
-    ? { metavar: value, description: '' }
-    : { metavar: '', description: value };
+  push();
+  return groups;
 }
 
 function makeOption(longs: string[], metavar: string): HelpOption | null {
@@ -102,55 +143,55 @@ function makeOption(longs: string[], metavar: string): HelpOption | null {
 
 export function parseHelpOptions(text: string): HelpOption[] {
   const options = new Map<string, HelpOption>();
-  let current: HelpOption | null = null;
+  let current: HelpOption[] = [];
   let description: string[] = [];
 
   const flush = (): void => {
-    if (current) {
-      current.description = clean(description.join(' '));
-      const existing = options.get(current.id);
+    const text = clean(description.join(' '));
+    for (const option of current) {
+      option.description = text;
+      const existing = options.get(option.id);
       if (existing) {
-        const aliases = [...new Set([...existing.aliases, ...current.aliases])];
-        if (existing.negated && !current.negated) {
-          Object.assign(existing, current, { aliases });
+        const aliases = [...new Set([...existing.aliases, ...option.aliases])];
+        if (existing.negated && !option.negated) {
+          Object.assign(existing, option, { aliases });
         } else {
           existing.aliases = aliases;
-          if (!existing.description) existing.description = current.description;
+          if (!existing.description) existing.description = option.description;
         }
       } else {
-        options.set(current.id, current);
+        options.set(option.id, option);
       }
     }
-    current = null;
+    current = [];
     description = [];
   };
 
   for (const raw of text.replace(/\r/g, '').split('\n')) {
     const line = raw.replace(/\t/g, '    ');
-    const match = line.match(
-      /^\s*((?:-{1,2}[A-Za-z0-9][A-Za-z0-9-]*)(?:\s*,\s*-{1,2}[A-Za-z0-9][A-Za-z0-9-]*)*)(.*)$/,
-    );
+    const content = line.trim();
+    if (!content) continue;
 
-    if (!match || !match[1].includes('--')) {
-      if (current && line.trim()) description.push(line.trim());
+    const indent = line.length - line.trimStart().length;
+    const startsLikeOption = content.startsWith('-');
+    if (!startsLikeOption || indent >= 6) {
+      if (current.length > 0) description.push(content);
       continue;
     }
 
-    const aliases = match[1]
-      .split(',')
-      .map((alias) => alias.trim())
-      .filter(Boolean);
-    const longs = aliases.filter((alias) => alias.startsWith('--'));
-    if (longs.length === 0) {
-      if (current && line.trim()) description.push(line.trim());
+    const { spec, inline } = splitSpec(content);
+
+    const groups = parseSpec(spec);
+    if (!groups.some((group) => group.aliases.some((alias) => alias.startsWith('--')))) {
+      if (current.length > 0) description.push(content);
       continue;
     }
 
     flush();
-    const rest = match[2].replace(/^\s*:?\s*/, '');
-    const { metavar, description: inline } = splitRest(rest);
-    current = makeOption(longs, metavar);
-    if (inline) description.push(inline);
+    current = groups
+      .map((group) => makeOption(group.aliases.filter((alias) => alias.startsWith('--')), group.metavar))
+      .filter((option): option is HelpOption => option !== null);
+    if (inline) description.push(inline.replace(/^:\s*/, ''));
   }
 
   flush();

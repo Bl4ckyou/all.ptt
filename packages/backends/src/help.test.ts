@@ -62,6 +62,18 @@ describe('parseHelpOptions', () => {
     expect(threads?.description).toBe('number of threads');
   });
 
+  it('parses several options on one line and lowercase metavars', () => {
+    const options = parseHelpOptions(
+      '--top-k N --top-p F --temperature F\n--vision             --serve takes images too',
+    );
+    const byId = new Map(options.map((option) => [option.id, option]));
+    expect(byId.get('top-k')).toMatchObject({ kind: 'number', flag: '--top-k' });
+    expect(byId.get('top-p')).toMatchObject({ kind: 'number', flag: '--top-p' });
+    expect(byId.get('temperature')?.kind).toBe('number');
+    expect(byId.get('vision')).toMatchObject({ kind: 'boolean', flag: '--vision' });
+    expect(byId.get('vision')?.description).toBe('--serve takes images too');
+  });
+
   it('prefers a positive value option over a negated boolean variant', () => {
     const options = parseHelpOptions(
       '--no-flash-attn   disable Flash Attention\n-fa, --flash-attn (auto|on|off)   set Flash Attention',
