@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { TranslationService, type Translator } from './translation.js';
+import { MutableTranslator, TranslationService, type Translator } from './translation.js';
 
 class FakeTranslator implements Translator {
   readonly calls: string[][] = [];
@@ -30,6 +30,23 @@ afterEach(async () => {
 });
 
 describe('TranslationService', () => {
+  it('does not translate or cache before a translator is ready', async () => {
+    const root = await workspace();
+    const service = new TranslationService(root, new MutableTranslator());
+    await expect(service.translate(['Hello'], 'fr')).resolves.toEqual(['Hello']);
+    await expect(
+      (await import('node:fs/promises')).readdir(join(root, '.ptt', 'translations')).catch(() => []),
+    ).resolves.toEqual([]);
+  });
+
+  it('does not cache unchanged translations', async () => {
+    const translator = new FakeTranslator((texts) => texts);
+    const service = new TranslationService(await workspace(), translator);
+    await service.translate(['Hello'], 'fr');
+    await service.translate(['Hello'], 'fr');
+    expect(translator.calls).toHaveLength(2);
+  });
+
   it('does not translate english', async () => {
     const translator = new FakeTranslator();
     const service = new TranslationService(await workspace(), translator);

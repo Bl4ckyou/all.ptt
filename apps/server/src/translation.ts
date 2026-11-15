@@ -7,10 +7,15 @@ import type { ProviderRegistry } from './providers.js';
 
 export interface Translator {
   translate(texts: string[], locale: string): Promise<string[]>;
+  isReady?(): boolean;
 }
 
 export class MutableTranslator implements Translator {
   inner: Translator | null = null;
+
+  isReady(): boolean {
+    return this.inner !== null;
+  }
 
   async translate(texts: string[], locale: string): Promise<string[]> {
     return this.inner ? this.inner.translate(texts, locale) : texts;
@@ -116,13 +121,21 @@ export class TranslationService {
   ) {}
 
   async translate(texts: string[], locale: string): Promise<string[]> {
-    if (!this.translator || texts.length === 0 || baseLanguage(locale) === 'en') return texts;
+    if (
+      !this.translator ||
+      (this.translator.isReady && !this.translator.isReady()) ||
+      texts.length === 0 ||
+      baseLanguage(locale) === 'en'
+    ) {
+      return texts;
+    }
     return this.withLock(cacheKey(locale), () => this.run(texts, locale));
   }
 
   private async run(texts: string[], locale: string): Promise<string[]> {
     const file = cachePath(this.root, locale);
-    const cache = (await readJsonFile<Record<string, string>>(file)) ?? {};
+    const stored = await readJsonFile<{ version?: number; entries?: Record<string, string> }>(file);
+    const cache = stored?.version === 2 ? (stored.entries ?? {}) : {};
     const keys = texts.map(hash);
 
     const pending = new Map<string, { masked: string; tokens: string[] }>();
@@ -139,11 +152,14 @@ export class TranslationService {
           entries.map(([, value]) => value.masked),
           locale,
         );
+        let changed = false;
         entries.forEach(([key, value], index) => {
           const restored = restoreTokens(translated[index] ?? '', value.tokens);
-          if (restored !== null) cache[key] = restored;
+          if (restored === null) return;
+          cache[key] = restored;
+          if (restored !== texts[keys.indexOf(key)]) changed = true;
         });
-        await writeJsonFile(file, cache);
+        if (changed) await writeJsonFile(file, { version: 2, entries: cache });
       } catch {
         return texts;
       }
