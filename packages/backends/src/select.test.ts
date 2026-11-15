@@ -6,8 +6,8 @@ import { selectAsset } from './select.js';
 const manifest = loadManifest();
 const context = { cpu: 'avx2', cuda: '12.8', os: 'linux', arch: 'x64' };
 
-function asset(name: string) {
-  return { name, url: `https://example.test/${name}`, size: 1 };
+function asset(name: string, size = 2048) {
+  return { name, url: `https://example.test/${name}`, size };
 }
 
 describe('selectAsset', () => {
@@ -103,6 +103,18 @@ describe('selectAsset', () => {
     );
     expect(result?.asset.name).toBe('llama-b1-bin-win-cuda-13.1-x64.zip');
     expect(result?.runtime?.name).toBe('cudart-llama-bin-win-cuda-13.1-x64.zip');
+  });
+
+  it('ignores placeholder assets with a negligible size', () => {
+    const placeholder = 'cudart-llama-bin-win-cuda-13.1-x64.zip';
+    const result = selectAsset(
+      [asset(placeholder, 22), asset('llama-b1-bin-win-cuda-13.1-x64.zip')],
+      manifest.backends['llama-cpp'].selection,
+      ['win-x64-cuda'],
+      { ...context, os: 'win', cuda: '13.1' },
+    );
+    expect(result?.asset.name).toBe('llama-b1-bin-win-cuda-13.1-x64.zip');
+    expect(result?.runtime).toBeUndefined();
   });
 
   it('pairs ik_llama cudart variants with the matching cpu build', () => {

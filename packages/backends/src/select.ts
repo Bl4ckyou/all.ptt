@@ -1,5 +1,11 @@
 import type { ReleaseAsset, SelectionRule } from './types.js';
 
+const MIN_ASSET_BYTES = 1024;
+
+function isUsableAsset(asset: ReleaseAsset): boolean {
+  return !asset.size || asset.size >= MIN_ASSET_BYTES;
+}
+
 function substitute(pattern: string, context: Record<string, string>): string {
   return pattern.replace(/\{(\w+)\}/g, (_match, key: string) => context[key] ?? '');
 }
@@ -43,7 +49,10 @@ export function selectAsset(
       const include = toRegExp(rule.include, context);
       const excludes = (rule.exclude ?? []).map((pattern) => toRegExp(pattern, context));
       const matches = assets.filter(
-        (asset) => include.test(asset.name) && !excludes.some((regex) => regex.test(asset.name)),
+        (asset) =>
+          isUsableAsset(asset) &&
+          include.test(asset.name) &&
+          !excludes.some((regex) => regex.test(asset.name)),
       );
       if (matches.length === 0) continue;
 
@@ -60,7 +69,10 @@ export function selectAsset(
 
       const runtimeCandidates = rule.runtime
         ? assets.filter(
-            (asset) => asset !== ordered[0] && toRegExp(rule.runtime!, context).test(asset.name),
+            (asset) =>
+              isUsableAsset(asset) &&
+              asset !== ordered[0] &&
+              toRegExp(rule.runtime!, context).test(asset.name),
           )
         : [];
       const binSuffix = ordered[0].name.match(/(-bin-.*)$/)?.[1];
