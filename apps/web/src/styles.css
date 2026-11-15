@@ -1653,3 +1653,20 @@ select.control {
 .translation-speed-meta {
   font-size: 11px;
 }
+
+.translation-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.translation-manual summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.translation-more .control {
+  margin-top: 8px;
+}

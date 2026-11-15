@@ -731,14 +731,85 @@ export function createManage(actions: Actions): Manage {
           }, [icon('play'), t('manage-translate-enable')]);
 
           const candidateList = el('div', { class: 'translation-candidates' });
+          const localSearch = el('input', {
+            class: 'control',
+            attrs: { placeholder: t('manage-translate-local-search') },
+          });
+          const localList = el('div', { class: 'translation-candidates' });
+
+          function renderLocalModels(): void {
+            const term = localSearch.value.trim().toLowerCase();
+            const seen = new Set<string>();
+            const pool = [...state.localModels, ...state.drafts, ...state.auxiliary].filter(
+              (file) => {
+                if (seen.has(file.path)) return false;
+                seen.add(file.path);
+                return (
+                  term === '' ||
+                  file.name.toLowerCase().includes(term) ||
+                  file.path.toLowerCase().includes(term)
+                );
+              },
+            );
+
+            localList.replaceChildren();
+            if (pool.length === 0) {
+              localList.append(
+                el('p', { class: 'translation-hint muted', text: t('manage-no-results') }),
+              );
+              return;
+            }
+
+            for (const file of pool.slice(0, 20)) {
+              const quant = 'quantization' in file ? file.quantization : undefined;
+              localList.append(
+                el('div', { class: 'translation-candidate' }, [
+                  el('div', { class: 'translation-candidate-copy' }, [
+                    el('span', {
+                      class: 'translation-candidate-name',
+                      text: file.name,
+                    }),
+                    el('span', {
+                      class: 'translation-candidate-meta muted',
+                      text: [quant, shortPath(file.path)].filter(Boolean).join(' · '),
+                    }),
+                  ]),
+                  el('button', {
+                    class: 'button',
+                    on: {
+                      click: () => {
+                        void actions
+                          .enableTranslation(file.path)
+                          .then(renderTranslationStatus);
+                      },
+                    },
+                  }, [icon('play'), t('manage-translate-enable')]),
+                ]),
+              );
+            }
+          }
+
+          localSearch.addEventListener('input', renderLocalModels);
+          renderLocalModels();
+
+          const plamoHint = el('p', {
+            class: 'translation-hint muted',
+            text: t('manage-translate-recommended'),
+          });
           const more = el('details', { class: 'translation-more' }, [
             el('summary', { text: t('manage-translate-other') }),
             el('p', {
               class: 'translation-hint muted',
-              text: t('manage-translate-recommended'),
+              text: t('manage-translate-scan'),
             }),
+            localSearch,
+            localList,
+            el('details', { class: 'translation-manual' }, [
+              el('summary', { text: t('manage-translate-manual') }),
+              el('div', { class: 'translation-path' }, [pathInput, enableButton]),
+            ]),
+            plamoHint,
             el('div', { class: 'translation-actions' }, [downloadButton]),
-            el('div', { class: 'translation-path' }, [pathInput, enableButton]),
           ]);
 
           const speedButtons = el('div', { class: 'segmented' });
@@ -755,10 +826,10 @@ export function createManage(actions: Actions): Manage {
           const panel = el('section', { class: 'translation-panel' }, [
             el('div', { class: 'translation-head' }, [
               el('div', { class: 'translation-copy' }, [
-                el('span', {
-                  class: 'translation-title',
-                  text: t('manage-translate-title'),
-                }),
+                el('span', { class: 'translation-title' }, [
+                  icon('globe', 'icon small'),
+                  t('manage-translate-title'),
+                ]),
                 el('p', {
                   class: 'translation-desc',
                   text: t('manage-translate-desc'),
@@ -861,6 +932,16 @@ export function createManage(actions: Actions): Manage {
             translateButton.hidden = !ready;
             disableButton.hidden = !ready;
             translateButton.disabled = !ready;
+            const hasPlamo =
+              status.model?.path?.toLowerCase().includes('plamo') ||
+              status.candidates?.some(
+                (candidate) =>
+                  candidate.path.toLowerCase().includes('plamo') ||
+                  candidate.name.toLowerCase().includes('plamo'),
+              ) ||
+              false;
+            downloadButton.hidden = hasPlamo;
+            plamoHint.hidden = hasPlamo;
             downloadButton.disabled = active;
             enableButton.disabled = active;
 
