@@ -154,6 +154,7 @@ manage-translate-download = Télécharger PLaMo 3
 manage-translate-enable = Utiliser ce GGUF
 manage-translate-ready = Traduction prête : {$model} {$quant}
 manage-translate-progress = Téléchargement… {$percent} %
+manage-translate-progress-count = Traduction… {$done}/{$total}
 manage-translate-starting = Démarrage du backend de traduction…
 manage-translate-disable = Désactiver la traduction
 setting-cpu-range = Plage CPU

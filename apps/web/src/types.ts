@@ -192,6 +192,7 @@ export interface TranslationStatus {
   };
   languages?: string[];
   candidates?: TranslationCandidate[];
+  translating?: { done: number; total: number };
 }
 
 export interface TranslationCandidate {

@@ -3,6 +3,7 @@ import { copyFile, mkdir, rename, rm, stat, symlink, writeFile } from 'node:fs/p
 import { dirname, join } from 'node:path';
 import {
   BackendLauncher,
+  clearModelScanCache,
   huggingFaceHubDir,
   quantizationOf,
   readGgufSignature,
@@ -116,6 +117,7 @@ export interface TranslationStatus {
   };
   languages?: string[];
   candidates?: TranslationCandidate[];
+  translating?: { done: number; total: number };
 }
 
 function targetLang(locale: string): string {
@@ -186,12 +188,14 @@ class NativeTranslator implements Translator {
   constructor(
     private readonly registry: ProviderRegistry,
     private readonly template: boolean,
+    private readonly onProgress?: (done: number, total: number) => void,
   ) {}
 
   async translate(texts: string[], locale: string): Promise<string[]> {
     const provider = this.registry.get(PROVIDER_ID);
     if (!provider) throw new Error('translation provider is not running');
 
+    let done = 0;
     return mapLimit(texts, 4, async (text) => {
       const messages: ChatMessage[] = [{ role: 'user', content: text }];
       let content = '';
@@ -212,6 +216,8 @@ class NativeTranslator implements Translator {
       })) {
         if (event.type === 'content') content += event.delta;
       }
+      done += 1;
+      this.onProgress?.(done, texts.length);
       return content.trim();
     });
   }
@@ -278,10 +284,27 @@ async function downloadToHuggingFaceCache(
   return target;
 }
 
+class ManagedTranslator implements Translator {
+  constructor(private readonly manager: TranslationManager) {}
+
+  isReady(): boolean {
+    return true;
+  }
+
+  translate(texts: string[], locale: string): Promise<string[]> {
+    return this.manager.translateInternal(texts, locale);
+  }
+}
+
 export class TranslationManager {
   private state: TranslationStatus = { status: 'idle', progress: 0, total: 0 };
   private running: RunningBackend | null = null;
   private candidates: TranslationCandidate[] = [];
+  private active: Translator | null = null;
+  private modelPath: string | null = null;
+  private modelTemplate = false;
+  private idleTimer: NodeJS.Timeout | null = null;
+  private starting: Promise<void> | null = null;
 
   constructor(
     private readonly root: string,
@@ -293,14 +316,13 @@ export class TranslationManager {
     if (translator.inner) {
       this.state = { status: 'ready', progress: 0, total: 0, providerId: PROVIDER_ID };
     }
-    void this.refreshCandidates();
   }
 
   status(): TranslationStatus {
     return { ...this.state, candidates: this.candidates };
   }
 
-  private async refreshCandidates(): Promise<void> {
+  async refreshCandidates(): Promise<void> {
     try {
       this.candidates = await findTranslationCandidates(this.modelDirs);
     } catch {
@@ -308,12 +330,90 @@ export class TranslationManager {
     }
   }
 
-  async disable(): Promise<void> {
-    if (this.running) {
-      this.launcher.stop(this.running.providerId);
-      this.running = null;
+  async translateInternal(texts: string[], locale: string): Promise<string[]> {
+    await this.ensureBackend();
+    if (!this.active) throw new Error('translation backend is not available');
+    this.state = { ...this.state, translating: { done: 0, total: texts.length } };
+    try {
+      return await this.active.translate(texts, locale);
+    } finally {
+      this.state = { ...this.state, translating: undefined };
+      this.scheduleIdleStop();
     }
+  }
+
+  private updateProgress(done: number, total: number): void {
+    if (this.state.translating) this.state = { ...this.state, translating: { done, total } };
+  }
+
+  private scheduleIdleStop(): void {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => this.stopBackend(), 90_000);
+    this.idleTimer.unref?.();
+  }
+
+  private stopBackend(): void {
+    if (this.running) this.launcher.stop(this.running.providerId);
+    this.running = null;
+    this.active = null;
     this.registry.remove(PROVIDER_ID);
+  }
+
+  private async ensureBackend(): Promise<void> {
+    if (this.running && this.active) return;
+    if (this.starting) return this.starting;
+    if (!this.modelPath) throw new Error('no translation model selected');
+
+    const path = this.modelPath;
+    const template = this.modelTemplate;
+    this.starting = this.startBackend(path, template).finally(() => {
+      this.starting = null;
+    });
+    await this.starting;
+  }
+
+  private async startBackend(path: string, template: boolean): Promise<void> {
+    const binary = await this.findLlamaBinary();
+    if (!binary) throw new Error('no llama.cpp backend is installed');
+
+    if (this.running) this.launcher.stop(this.running.providerId);
+    this.running = await this.launcher.launch({
+      binary,
+      backendId: 'translation',
+      modelPath: path,
+      local: {
+        binary: '',
+        baseArgs: [
+          '-m',
+          '{model}',
+          '--host',
+          '{host}',
+          '--port',
+          '{port}',
+          '--jinja',
+          '--alias',
+          MODEL_ALIAS,
+        ],
+      },
+    });
+
+    this.registry.add(
+      new OpenAICompatibleProvider({
+        id: PROVIDER_ID,
+        baseUrl: `http://127.0.0.1:${this.running.port}/v1`,
+      }),
+    );
+
+    this.active = template
+      ? new NativeTranslator(this.registry, true, (done, total) => this.updateProgress(done, total))
+      : new ProviderTranslator(this.registry, { providerId: PROVIDER_ID, model: MODEL_ALIAS });
+  }
+
+  async disable(): Promise<void> {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = null;
+    this.stopBackend();
+    this.modelPath = null;
     this.translator.inner = null;
     this.state = { status: 'idle', progress: 0, total: 0 };
     await this.refreshCandidates();
@@ -343,6 +443,8 @@ export class TranslationManager {
       const modelPath = await downloadToHuggingFaceCache((done, total) => {
         this.state = { status: 'downloading', progress: done, total };
       });
+      clearModelScanCache();
+      await this.refreshCandidates();
       await this.enableWithModel(modelPath);
     })().catch((error: Error) => {
       this.state = { status: 'error', progress: 0, total: 0, error: error.message };
@@ -361,45 +463,11 @@ export class TranslationManager {
       const signature = await readGgufSignature(path);
       if (!signature.hasTokenizer) throw new Error('not a usable GGUF model');
 
-      const binary = await this.findLlamaBinary();
-      if (!binary) throw new Error('no llama.cpp backend is installed');
-
-      if (this.running) {
-        this.launcher.stop(this.running.providerId);
-        this.running = null;
-      }
-
-      this.running = await this.launcher.launch({
-        binary,
-        backendId: 'translation',
-        modelPath: path,
-        local: {
-          binary: '',
-          baseArgs: [
-            '-m',
-            '{model}',
-            '--host',
-            '{host}',
-            '--port',
-            '{port}',
-            '--jinja',
-            '--alias',
-            MODEL_ALIAS,
-          ],
-        },
-      });
-
-      this.registry.add(
-        new OpenAICompatibleProvider({
-          id: PROVIDER_ID,
-          baseUrl: `http://127.0.0.1:${this.running.port}/v1`,
-        }),
-      );
-
       const template = /target_lang/.test(signature.chatTemplate ?? '');
-      this.translator.inner = template
-        ? new NativeTranslator(this.registry, true)
-        : new ProviderTranslator(this.registry, { providerId: PROVIDER_ID, model: MODEL_ALIAS });
+      this.modelPath = path;
+      this.modelTemplate = template;
+      await this.startBackend(path, template);
+      this.translator.inner = new ManagedTranslator(this);
 
       const name = signature.name ?? signature.basename ?? 'translation model';
       this.state = {
@@ -419,6 +487,7 @@ export class TranslationManager {
             ? PLAMO_LANGUAGES
             : undefined,
       };
+      this.scheduleIdleStop();
       return this.status();
     } catch (error) {
       this.state = {

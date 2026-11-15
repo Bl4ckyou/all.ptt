@@ -132,18 +132,12 @@ export class TranslationService {
   ) {}
 
   async translate(texts: string[], locale: string): Promise<string[]> {
-    if (
-      !this.translator ||
-      (this.translator.isReady && !this.translator.isReady()) ||
-      texts.length === 0 ||
-      baseLanguage(locale) === 'en'
-    ) {
-      return texts;
-    }
-    return this.withLock(cacheKey(locale), () => this.run(texts, locale));
+    if (!this.translator || texts.length === 0 || baseLanguage(locale) === 'en') return texts;
+    const ready = !this.translator.isReady || this.translator.isReady();
+    return this.withLock(cacheKey(locale), () => this.run(texts, locale, ready));
   }
 
-  private async run(texts: string[], locale: string): Promise<string[]> {
+  private async run(texts: string[], locale: string, ready: boolean): Promise<string[]> {
     const file = cachePath(this.root, locale);
     const stored = await readJsonFile<{ version?: number; entries?: Record<string, string> }>(file);
     const cache = stored?.version === 4 ? (stored.entries ?? {}) : {};
@@ -158,7 +152,7 @@ export class TranslationService {
       }
     });
 
-    if (pending.size > 0) {
+    if (ready && pending.size > 0) {
       const entries = [...pending.entries()];
       try {
         const translated = await this.translator!.translate(

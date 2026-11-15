@@ -3,7 +3,8 @@ import { readJson, sendError, sendJson } from '../http.js';
 import type { Handler } from '../router.js';
 
 export function translationStatusRoute(context: AppContext): Handler {
-  return ({ res }) => {
+  return async ({ res }) => {
+    await context.translationManager.refreshCandidates();
     sendJson(res, 200, context.translationManager.status());
   };
 }

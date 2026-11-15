@@ -646,6 +646,15 @@ export function createManage(actions: Actions): Manage {
                 if (!configBackend) return;
                 translateButton.disabled = true;
                 translateStatus.textContent = '';
+                const progressPoll = window.setInterval(() => {
+                  void actions.translationStatus().then((status) => {
+                    if (!status.translating) return;
+                    translateStatus.textContent = t('manage-translate-progress-count', {
+                      done: String(status.translating.done),
+                      total: String(status.translating.total),
+                    });
+                  });
+                }, 700);
                 void actions
                   .getBackendSettings(configBackend, currentLocale())
                   .then((info) => {
@@ -673,6 +682,7 @@ export function createManage(actions: Actions): Manage {
                     translateStatus.textContent = t('manage-translate-error');
                   })
                   .finally(() => {
+                    window.clearInterval(progressPoll);
                     translateButton.disabled = false;
                   });
               },

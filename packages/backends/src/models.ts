@@ -150,8 +150,19 @@ export interface LocalFiles {
   auxiliary: AuxiliaryFile[];
 }
 
+let scanCache: { key: string; expires: number; value: LocalFiles } | null = null;
+
+export function clearModelScanCache(): void {
+  scanCache = null;
+}
+
 // Scan the Hugging Face cache and extra directories once, classifying files.
 export async function scanLocalFiles(extraDirs: string[] = []): Promise<LocalFiles> {
+  const key = JSON.stringify(extraDirs);
+  if (scanCache && scanCache.key === key && scanCache.expires > Date.now()) {
+    return scanCache.value;
+  }
+
   const files: ScannedFile[] = [];
   const seen = new Set<string>();
 
@@ -176,7 +187,9 @@ export async function scanLocalFiles(extraDirs: string[] = []): Promise<LocalFil
     .filter((file) => file.kind === 'mmproj')
     .map(({ kind: _kind, category: _category, ...rest }) => ({ ...rest, kind: 'mmproj' as const }))
     .sort((a, b) => a.name.localeCompare(b.name));
-  return { models, drafts, auxiliary };
+  const value = { models, drafts, auxiliary };
+  scanCache = { key, expires: Date.now() + 10_000, value };
+  return value;
 }
 
 export async function scanLocalModels(extraDirs: string[] = []): Promise<LocalModel[]> {
