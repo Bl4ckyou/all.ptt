@@ -155,6 +155,7 @@ manage-translate-enable = この GGUF を使用
 manage-translate-ready = 翻訳の準備完了: {$model} {$quant}
 manage-translate-progress = ダウンロード中… {$percent}%
 manage-translate-progress-count = 翻訳中… {$done}/{$total}
+manage-translate-coverage = {$translated}/{$total} 件の説明を翻訳済み
 manage-translate-starting = 翻訳バックエンドを起動中…
 manage-translate-disable = 翻訳を無効化
 setting-cpu-range = CPU 範囲

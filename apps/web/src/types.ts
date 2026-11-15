@@ -137,6 +137,7 @@ export interface BackendSettingsInfo {
   settings: ResolvedSettingInfo[];
   categorySpecTypes: Record<string, string>;
   probed: boolean;
+  translation?: { translated: number; total: number };
 }
 
 export interface JobProgressInfo {

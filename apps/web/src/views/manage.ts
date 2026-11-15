@@ -50,6 +50,7 @@ export function createManage(actions: Actions): Manage {
   let configModel: LocalModelInfo | null = null;
   let configBackend: string | null = null;
   let configSettings: ResolvedSettingInfo[] = [];
+  let configCoverage: { translated: number; total: number } | null = null;
   let configValues: Record<string, SettingValue> = {};
   let configExtra = '';
   let configInfo: GgufModelInfo | null = null;
@@ -675,7 +676,13 @@ export function createManage(actions: Actions): Manage {
                         changed = true;
                       }
                     }
-                    if (!changed) translateStatus.textContent = t('manage-translate-none');
+                    configCoverage = info.translation ?? null;
+                    translateStatus.textContent = configCoverage
+                      ? t('manage-translate-coverage', {
+                          translated: String(configCoverage.translated),
+                          total: String(configCoverage.total),
+                        })
+                      : t('manage-translate-none');
                     refreshSettingsVisibility();
                   })
                   .catch(() => {
@@ -825,12 +832,17 @@ export function createManage(actions: Actions): Manage {
             if (ready) {
               statusBadge.textContent = t('manage-translate-ready-badge');
               statusBadge.classList.add('ready');
-              translateStatus.textContent = status.model
-                ? t('manage-translate-ready', {
-                    model: status.model.name,
-                    quant: status.model.quant ?? '',
+              translateStatus.textContent = configCoverage
+                ? t('manage-translate-coverage', {
+                    translated: String(configCoverage.translated),
+                    total: String(configCoverage.total),
                   })
-                : t('manage-translate-ready', { model: 'provider', quant: '' });
+                : status.model
+                  ? t('manage-translate-ready', {
+                      model: status.model.name,
+                      quant: status.model.quant ?? '',
+                    })
+                  : t('manage-translate-ready', { model: 'provider', quant: '' });
             } else if (status.status === 'downloading') {
               statusBadge.textContent = t('manage-translate-downloading-badge');
               statusBadge.classList.add('busy');
@@ -849,7 +861,12 @@ export function createManage(actions: Actions): Manage {
               translateStatus.textContent = status.error ?? t('manage-translate-error');
             } else {
               statusBadge.textContent = t('manage-translate-off');
-              translateStatus.textContent = '';
+              translateStatus.textContent = configCoverage
+                ? t('manage-translate-coverage', {
+                    translated: String(configCoverage.translated),
+                    total: String(configCoverage.total),
+                  })
+                : '';
             }
           }
 

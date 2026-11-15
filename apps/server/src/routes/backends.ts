@@ -152,20 +152,22 @@ export function backendSettingsRoute(context: AppContext): Handler {
       (entry) => !entry.descriptionKey && entry.description,
     );
 
+    const sourceTexts = dynamic.map((entry) => entry.description as string);
+
     if (dynamic.length > 0) {
-      const translated = await context.translation.translate(
-        dynamic.map((entry) => entry.description as string),
-        locale,
-      );
+      const translated = await context.translation.translate(sourceTexts, locale);
       dynamic.forEach((entry, index) => {
         entry.description = translated[index];
       });
     }
 
+    const coverage = await context.translation.coverage(sourceTexts, locale);
+
     sendJson(res, 200, {
       probed,
       settings: entries,
       categorySpecTypes: backend.categorySpecTypes ?? {},
+      translation: coverage,
     });
   };
 }

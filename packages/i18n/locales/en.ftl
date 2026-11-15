@@ -155,6 +155,7 @@ manage-translate-enable = Use this GGUF
 manage-translate-ready = Translation ready: {$model} {$quant}
 manage-translate-progress = Downloading… {$percent}%
 manage-translate-progress-count = Translating… {$done}/{$total}
+manage-translate-coverage = {$translated}/{$total} descriptions translated
 manage-translate-starting = Starting translation backend…
 manage-translate-disable = Disable translation
 setting-cpu-range = CPU range

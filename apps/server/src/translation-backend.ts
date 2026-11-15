@@ -184,6 +184,22 @@ async function mapLimit<T, R>(
   return results;
 }
 
+function splitForTranslation(text: string, limit = 1200): string[] {
+  if (text.length <= limit) return [text];
+
+  const parts: string[] = [];
+  let rest = text;
+  while (rest.length > limit) {
+    let cut = rest.lastIndexOf('. ', limit);
+    if (cut < limit * 0.4) cut = rest.lastIndexOf(' ', limit);
+    if (cut <= 0) cut = limit;
+    parts.push(rest.slice(0, cut + 1).trim());
+    rest = rest.slice(cut + 1).trim();
+  }
+  if (rest) parts.push(rest);
+  return parts;
+}
+
 class NativeTranslator implements Translator {
   constructor(
     private readonly registry: ProviderRegistry,
@@ -196,36 +212,42 @@ class NativeTranslator implements Translator {
     if (!provider) throw new Error('translation provider is not running');
 
     let done = 0;
-    return mapLimit(texts, 3, async (text) => {
-      const messages: ChatMessage[] = [{ role: 'user', content: text }];
-      let content = '';
+    return mapLimit(texts, 2, async (text) => {
+      const pieces: string[] = [];
+
       try {
-        for await (const event of provider.chat({
-        model: MODEL_ALIAS,
-        messages,
-        temperature: 0,
-        maxTokens: 512,
-        signal: AbortSignal.timeout(30_000),
-        ...(this.template
-          ? {
-              chatTemplateKwargs: {
-                source_lang: 'en',
-                target_lang: targetLang(locale),
-                context: 'Technical command-line settings for a local LLM inference server.',
-                ...(glossaryFor(locale) ? { glossary: glossaryFor(locale) } : {}),
-              },
-            }
-          : {}),
-        })) {
-          if (event.type === 'content') content += event.delta;
+        for (const chunk of splitForTranslation(text)) {
+          let content = '';
+          for await (const event of provider.chat({
+            model: MODEL_ALIAS,
+            messages: [{ role: 'user', content: chunk }],
+            temperature: 0,
+            maxTokens: 768,
+            signal: AbortSignal.timeout(45_000),
+            ...(this.template
+              ? {
+                  chatTemplateKwargs: {
+                    source_lang: 'en',
+                    target_lang: targetLang(locale),
+                    context: 'Technical command-line settings for a local LLM inference server.',
+                    ...(glossaryFor(locale) ? { glossary: glossaryFor(locale) } : {}),
+                  },
+                }
+              : {}),
+          })) {
+            if (event.type === 'content') content += event.delta;
+          }
+          if (!content.trim()) return '';
+          pieces.push(content.trim());
         }
       } catch {
         // A slow or stuck translation must not block the whole batch.
         return '';
       }
+
       done += 1;
       this.onProgress?.(done, texts.length);
-      return content.trim();
+      return pieces.join(' ');
     });
   }
 }

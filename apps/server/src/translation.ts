@@ -133,6 +133,24 @@ export class TranslationService {
     private readonly translator: Translator | null,
   ) {}
 
+  async coverage(
+    texts: string[],
+    locale: string,
+  ): Promise<{ translated: number; total: number }> {
+    if (baseLanguage(locale) === 'en' || texts.length === 0) {
+      return { translated: texts.length, total: texts.length };
+    }
+    const stored = await readJsonFile<{ version?: number; entries?: Record<string, string> }>(
+      cachePath(this.root, locale),
+    );
+    const cache = stored?.version === 4 ? (stored.entries ?? {}) : {};
+    const translated = texts
+      .map((text) => splitEnv(text).clean)
+      .map(hash)
+      .filter((key) => cache[key] !== undefined).length;
+    return { translated, total: texts.length };
+  }
+
   async translate(texts: string[], locale: string): Promise<string[]> {
     if (!this.translator || texts.length === 0 || baseLanguage(locale) === 'en') return texts;
     const ready = !this.translator.isReady || this.translator.isReady();
