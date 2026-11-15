@@ -135,7 +135,15 @@ class NativeTranslator implements Translator {
         model: MODEL_ALIAS,
         messages,
         temperature: 0,
-        ...(this.template ? { chatTemplateKwargs: { target_lang: targetLang(locale) } } : {}),
+        ...(this.template
+          ? {
+              chatTemplateKwargs: {
+                source_lang: 'en',
+                target_lang: targetLang(locale),
+                context: 'Technical command-line settings for a local LLM inference server.',
+              },
+            }
+          : {}),
       })) {
         if (event.type === 'content') content += event.delta;
       }

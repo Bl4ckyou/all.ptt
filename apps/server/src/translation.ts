@@ -35,6 +35,13 @@ function cacheKey(locale: string): string {
   return locale.toLowerCase().replace(/[^a-z0-9-]/g, '_');
 }
 
+function cleanSource(text: string): string {
+  return text
+    .replace(/\s*\(env:[^)]*\)/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function cachePath(root: string, locale: string): string {
   return join(root, '.ptt', 'translations', `${cacheKey(locale)}.json`);
 }
@@ -135,11 +142,12 @@ export class TranslationService {
   private async run(texts: string[], locale: string): Promise<string[]> {
     const file = cachePath(this.root, locale);
     const stored = await readJsonFile<{ version?: number; entries?: Record<string, string> }>(file);
-    const cache = stored?.version === 2 ? (stored.entries ?? {}) : {};
-    const keys = texts.map(hash);
+    const cache = stored?.version === 3 ? (stored.entries ?? {}) : {};
+    const sources = texts.map(cleanSource);
+    const keys = sources.map(hash);
 
     const pending = new Map<string, { masked: string; tokens: string[] }>();
-    texts.forEach((text, index) => {
+    sources.forEach((text, index) => {
       if (cache[keys[index]] === undefined && !pending.has(keys[index])) {
         pending.set(keys[index], protectTokens(text));
       }
@@ -157,9 +165,9 @@ export class TranslationService {
           const restored = restoreTokens(translated[index] ?? '', value.tokens);
           if (restored === null) return;
           cache[key] = restored;
-          if (restored !== texts[keys.indexOf(key)]) changed = true;
+          if (restored !== sources[keys.indexOf(key)]) changed = true;
         });
-        if (changed) await writeJsonFile(file, { version: 2, entries: cache });
+        if (changed) await writeJsonFile(file, { version: 3, entries: cache });
       } catch {
         return texts;
       }

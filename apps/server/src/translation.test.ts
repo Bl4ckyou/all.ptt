@@ -97,6 +97,13 @@ describe('TranslationService', () => {
     expect(translator.calls).toHaveLength(2);
   });
 
+  it('strips env suffixes before translating', async () => {
+    const translator = new FakeTranslator();
+    const service = new TranslationService(await workspace(), translator);
+    await service.translate(['CPU mask (env: LLAMA_ARG_X) (default: 0)'], 'fr');
+    expect(translator.calls[0]).toEqual(['CPU mask (default: 0)']);
+  });
+
   it('only sends uncached unique texts', async () => {
     const translator = new FakeTranslator();
     const service = new TranslationService(await workspace(), translator);

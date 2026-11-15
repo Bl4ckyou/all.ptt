@@ -147,21 +147,18 @@ export function backendSettingsRoute(context: AppContext): Handler {
     const entries = settings.map(({ flag: _flag, invert: _invert, ...rest }) => rest);
     const locale = url.searchParams.get('locale') ?? 'en';
 
-    // Only dynamic settings (without a curated i18n key) need machine translation.
-    const dynamic: { entry: (typeof entries)[number]; field: 'label' | 'description' }[] = [];
-    for (const entry of entries) {
-      if (entry.descriptionKey) continue;
-      if (entry.label) dynamic.push({ entry, field: 'label' });
-      if (entry.description) dynamic.push({ entry, field: 'description' });
-    }
+    // Only descriptions are machine-translated: flag labels stay technical.
+    const dynamic = entries.filter(
+      (entry) => !entry.descriptionKey && entry.description,
+    );
 
     if (dynamic.length > 0) {
       const translated = await context.translation.translate(
-        dynamic.map(({ entry, field }) => entry[field] as string),
+        dynamic.map((entry) => entry.description as string),
         locale,
       );
-      dynamic.forEach(({ entry, field }, index) => {
-        entry[field] = translated[index];
+      dynamic.forEach((entry, index) => {
+        entry.description = translated[index];
       });
     }
 
