@@ -36,6 +36,30 @@ export interface BackendInfo {
   defaultVariant: string;
   variants: string[];
   installed: InstalledBackendInfo[];
+  kind?: 'github' | 'local';
+  custom?: boolean;
+}
+
+export interface ReleaseSummary {
+  tag: string;
+  assets: { name: string; size: number }[];
+}
+
+export interface LocalBackendInput {
+  id: string;
+  label: string;
+  path: string;
+  modelArg?: string;
+  health?: string;
+}
+
+export interface GithubBackendInput {
+  id: string;
+  label: string;
+  repo: string;
+  tag: string;
+  asset: string;
+  binaryName?: string;
 }
 
 export interface RunningBackendInfo {

@@ -9,7 +9,7 @@ export interface Context {
 
 export type Handler = (context: Context) => Promise<void> | void;
 
-type Method = 'GET' | 'POST';
+type Method = 'GET' | 'POST' | 'DELETE';
 
 interface Route {
   method: Method;
@@ -55,6 +55,10 @@ export class Router {
 
   post(pattern: string, handler: Handler): this {
     return this.add('POST', pattern, handler);
+  }
+
+  delete(pattern: string, handler: Handler): this {
+    return this.add('DELETE', pattern, handler);
   }
 
   async handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {

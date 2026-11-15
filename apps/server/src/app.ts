@@ -14,6 +14,12 @@ import {
   updateBackendsRoute,
 } from './routes/backends.js';
 import { chatRoute } from './routes/chat.js';
+import {
+  addGithubBackendRoute,
+  addLocalBackendRoute,
+  browseBackendReleasesRoute,
+  removeCustomBackendRoute,
+} from './routes/custom-backends.js';
 import { healthRoute } from './routes/health.js';
 import { i18nCatalogRoute, i18nLocalesRoute } from './routes/i18n.js';
 import {
@@ -55,6 +61,10 @@ export function createApp(context: AppContext): Router {
     .get('/api/backends/settings', backendSettingsRoute(context))
     .post('/api/backends/install', installBackendRoute(context))
     .post('/api/backends/update', updateBackendsRoute(context))
+    .post('/api/backends/custom/local', addLocalBackendRoute(context))
+    .get('/api/backends/custom/releases', browseBackendReleasesRoute(context))
+    .post('/api/backends/custom/github', addGithubBackendRoute(context))
+    .delete('/api/backends/custom/:id', removeCustomBackendRoute(context))
     .get('/api/backends/jobs/:id', jobRoute(context))
     .post('/api/backends/jobs/:id/pause', pauseJobRoute(context))
     .post('/api/backends/jobs/:id/resume', resumeJobRoute(context))

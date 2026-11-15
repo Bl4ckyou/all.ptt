@@ -1,8 +1,11 @@
 import type { GgufModelInfo } from '@ptt/core';
 import type {
   BackendSettingsInfo,
+  GithubBackendInput,
+  LocalBackendInput,
   LocalModelInfo,
   ModelConfigInfo,
+  ReleaseSummary,
   SettingValue,
 } from './types.js';
 
@@ -15,6 +18,10 @@ export interface Actions {
   setModel(id: string): void;
   setView(view: 'chat' | 'manage'): void;
   refreshBackends(): Promise<void>;
+  addLocalBackend(input: LocalBackendInput): Promise<void>;
+  addGithubBackend(input: GithubBackendInput): Promise<void>;
+  browseBackendReleases(repo: string): Promise<ReleaseSummary[]>;
+  removeBackend(id: string): Promise<void>;
   installBackend(id: string, variant: string): Promise<void>;
   updateBackends(): Promise<void>;
   pauseJob(): Promise<void>;

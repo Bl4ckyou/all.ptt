@@ -128,6 +128,20 @@ Traditional Chinese). NLLB and T5 are encoder-decoder models and are **not**
 usable through `llama-server`; they are intentionally not supported. When
 translation is disabled or fails, descriptions fall back to English.
 
+### Add a custom backend
+
+From **Manage → Add backend** you can register:
+
+- **A local binary**: point to an executable already on disk. It is treated as a
+  pre-installed backend, launched with `-m {model} --host {host} --port {port}`
+  unless you provide a custom model argument, base arguments or health path.
+- **A GitHub release**: enter `owner/repository`, load its releases, pick the
+  asset for your machine and the binary name. The backend is stored under
+  `.ptt/backends.json` and future updates reuse the normal install/update flow.
+
+Custom backends are stored outside the repository in `.ptt/backends.json`, so
+they survive updates of PTT itself.
+
 ### Install binaries from the UI
 
 Open **Manage**, choose a backend variant and click **Install** or **Update**.

@@ -2,6 +2,9 @@ import { detectLocale } from '@ptt/i18n';
 import type { GgufModelInfo } from '@ptt/core';
 import type { Actions } from './actions.js';
 import {
+  addGithubBackend,
+  addLocalBackend,
+  browseBackendReleases,
   getBackendLatest,
   getBackendSettings,
   getBackends,
@@ -22,6 +25,7 @@ import {
   launchBackend,
   pauseJob as pauseJobRequest,
   resumeJob as resumeJobRequest,
+  removeBackend,
   restartProject as restartProjectRequest,
   revealPath as revealPathRequest,
   saveModelConfig,
@@ -38,9 +42,12 @@ import { loadI18n, readStoredLocale, storeLocale } from './i18n.js';
 import { notify, state, subscribe } from './state.js';
 import type {
   BackendSettingsInfo,
+  GithubBackendInput,
   JobInfo,
+  LocalBackendInput,
   LocalModelInfo,
   ModelConfigInfo,
+  ReleaseSummary,
   SettingValue,
 } from './types.js';
 import { createChat } from './views/chat.js';
@@ -83,6 +90,25 @@ async function refreshBackends(): Promise<void> {
   }
   notify();
   void checkBackendUpdates();
+}
+
+async function addLocalBackendAction(input: LocalBackendInput): Promise<void> {
+  await addLocalBackend(input);
+  await refreshBackends();
+}
+
+async function addGithubBackendAction(input: GithubBackendInput): Promise<void> {
+  await addGithubBackend(input);
+  await refreshBackends();
+}
+
+async function browseBackendReleasesAction(repo: string): Promise<ReleaseSummary[]> {
+  return browseBackendReleases(repo);
+}
+
+async function removeBackendAction(id: string): Promise<void> {
+  await removeBackend(id);
+  await refreshBackends();
 }
 
 let checkingUpdates = false;
@@ -563,6 +589,10 @@ const actions: Actions = {
   setModel,
   setView,
   refreshBackends,
+  addLocalBackend: addLocalBackendAction,
+  addGithubBackend: addGithubBackendAction,
+  browseBackendReleases: browseBackendReleasesAction,
+  removeBackend: removeBackendAction,
   installBackend: installBackendAction,
   updateBackends: updateBackendsAction,
   pauseJob: pauseJobAction,

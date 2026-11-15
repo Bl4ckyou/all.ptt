@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { BackendLauncher, loadManifest } from '@ptt/backends';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
+import { readCustomBackends } from './custom-backends.js';
 import { webAssets } from './generated/assets.js';
 import { JobManager } from './jobs.js';
 import { ProviderRegistry } from './providers.js';
@@ -21,12 +22,17 @@ const translator = config.translation
   ? new ProviderTranslator(registry, config.translation)
   : null;
 const translation = new TranslationService(config.backendRoot, translator);
+const manifest = loadManifest();
+const custom = await readCustomBackends(config.backendRoot);
+for (const [id, backend] of Object.entries(custom.backends)) {
+  manifest.backends[id] = backend;
+}
 const context = {
   registry,
   launcher,
   jobs,
   projects,
-  manifest: loadManifest(),
+  manifest,
   root: config.backendRoot,
   modelDirs: config.modelDirs,
   translation,

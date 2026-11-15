@@ -1,5 +1,6 @@
 import { cacheTypeBytes, estimateMemory, formatBytes, type GgufModelInfo } from '@ptt/core';
 import type { Actions } from '../actions.js';
+import { openAddBackendModal } from './add-backend-modal.js';
 import { el, option } from '../dom.js';
 import { currentLocale, t } from '../i18n.js';
 import { icon, type IconName } from '../icons.js';
@@ -139,6 +140,7 @@ export function createManage(actions: Actions): Manage {
   function backendCard(backend: BackendInfo): HTMLElement {
     const choice = variantChoices.get(backend.id) ?? backend.defaultVariant;
     const installed = backend.installed.length > 0;
+    const isLocal = backend.kind === 'local';
 
     const select = el(
       'select',
@@ -158,12 +160,18 @@ export function createManage(actions: Actions): Manage {
     const upToDate = Boolean(current && latestTag && latestTag === current.tag);
     const updateTag = current && latestTag && latestTag !== current.tag ? latestTag : null;
 
-    const action = button(
-      current ? 'refresh' : 'download',
-      upToDate ? t('backend-up-to-date') : current ? t('manage-update') : t('manage-install'),
-      () => void actions.installBackend(backend.id, choice),
-    );
-    action.disabled = upToDate;
+    const action = isLocal
+      ? el('span', { class: 'status-pill good', text: t('backend-external') })
+      : button(
+          current ? 'refresh' : 'download',
+          upToDate ? t('backend-up-to-date') : current ? t('manage-update') : t('manage-install'),
+          () => void actions.installBackend(backend.id, choice),
+        );
+    if (action instanceof HTMLButtonElement) action.disabled = upToDate;
+
+    const remove = backend.custom
+      ? button('x', t('backend-remove'), () => void actions.removeBackend(backend.id), true)
+      : null;
 
     const status = installed
       ? el('div', { class: 'backend-status' }, [
@@ -187,7 +195,7 @@ export function createManage(actions: Actions): Manage {
         el('span', { class: 'manage-name' }, [icon('server', 'icon small'), backend.label]),
         el('span', { class: 'manage-line muted', text: backend.repo }),
       ]),
-      el('div', { class: 'manage-row' }, [select, action]),
+      el('div', { class: 'manage-row' }, [select, action, ...(remove ? [remove] : [])]),
       status,
     ]);
   }
@@ -1009,6 +1017,9 @@ export function createManage(actions: Actions): Manage {
       el('div', { class: 'manage-top' }, [
         el('h2', { class: 'manage-heading' }, [icon('manage', 'icon heading'), t('nav-manage')]),
         el('div', { class: 'manage-actions' }, [
+          button('plus', t('backend-add'), () =>
+            openAddBackendModal(actions, () => void actions.refreshBackends()),
+          ),
           button('download', t('manage-update-project'), () => void actions.updateProject()),
           button('refresh', t('manage-update-all'), () => void actions.updateBackends()),
         ]),

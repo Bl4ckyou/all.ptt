@@ -44,10 +44,12 @@ export type {
 } from './install.js';
 export {
   backendDir,
+  clearInstalledState,
   installedStatePath,
   readInstalledState,
   readInstalledStates,
   resolveInstalledBinary,
+  writeInstalledState,
 } from './state.js';
 export {
   ggufKind,

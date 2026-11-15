@@ -43,6 +43,8 @@ export function backendsRoute(context: AppContext): Handler {
       defaultVariant: backend.defaultVariant,
       variants: variantsFor(backend),
       installed: Object.values(states[id]?.variants ?? {}),
+      kind: backend.kind ?? 'github',
+      custom: backend.custom ?? false,
     }));
 
     sendJson(res, 200, {
@@ -76,7 +78,7 @@ export function backendLatestRoute(context: AppContext): Handler {
         }
 
         const backend = context.manifest.backends[id];
-        if (!backend) return;
+        if (!backend || backend.kind === 'local') return;
 
         let releases;
         try {
@@ -186,6 +188,10 @@ export function installBackendRoute(context: AppContext): Handler {
       sendError(res, 400, 'error.unknown_backend');
       return;
     }
+    if (backend.kind === 'local') {
+      sendError(res, 400, 'error.local_backend');
+      return;
+    }
 
     const job = context.jobs.startBackends(
       'install',
@@ -215,10 +221,12 @@ export function updateBackendsRoute(context: AppContext): Handler {
     }
 
     const ids = body.id ? [body.id] : Object.keys(context.manifest.backends);
-    const items = ids.map((id) => ({
-      id,
-      label: context.manifest.backends[id]?.label ?? id,
-    }));
+    const items = ids
+      .filter((id) => context.manifest.backends[id]?.kind !== 'local')
+      .map((id) => ({
+        id,
+        label: context.manifest.backends[id]?.label ?? id,
+      }));
 
     const job = context.jobs.startBackends('update', items, {
       root: context.root,
@@ -307,6 +315,7 @@ export function launchBackendRoute(context: AppContext): Handler {
         modelPath: body.modelPath,
         port: body.port,
         extraArgs,
+        local: backend?.local,
       });
 
       context.registry.add(

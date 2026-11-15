@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 import { resolveInstalledBinary } from './state.js';
+import type { LocalBackend } from './types.js';
 
 export interface RunningBackend {
   providerId: string;
@@ -16,6 +17,7 @@ export interface LaunchOptions {
   modelPath: string;
   port?: number;
   extraArgs?: string[];
+  local?: LocalBackend;
 }
 
 interface ProcessEntry extends RunningBackend {
@@ -39,12 +41,18 @@ export async function findFreePort(start = 8080, end = 8099): Promise<number> {
   throw new Error(`no free port between ${start} and ${end}`);
 }
 
-async function waitForHealth(child: ChildProcess, port: number, timeoutMs = 120_000): Promise<void> {
+async function waitForHealth(
+  child: ChildProcess,
+  port: number,
+  healthPath = '/health',
+  timeoutMs = 120_000,
+): Promise<void> {
+  const path = healthPath.startsWith('/') ? healthPath : `/${healthPath}`;
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) throw new Error('backend exited before becoming ready');
     try {
-      const response = await fetch(`http://127.0.0.1:${port}/health`);
+      const response = await fetch(`http://127.0.0.1:${port}${path}`);
       if (response.ok) return;
     } catch {
       // not ready yet
@@ -73,19 +81,21 @@ export class BackendLauncher {
     const port = options.port ?? (await findFreePort());
     const providerId = `local-${port}`;
 
-    const child = spawn(
-      resolved.record.binary,
-      [
-        '-m',
-        options.modelPath,
-        '--host',
-        '127.0.0.1',
-        '--port',
-        String(port),
-        ...(options.extraArgs ?? []),
-      ],
-      { stdio: ['ignore', 'pipe', 'pipe'] },
-    );
+    const context = { model: options.modelPath, host: '127.0.0.1', port: String(port) };
+    const template = options.local?.baseArgs ?? [
+      options.local?.modelArg || '-m',
+      '{model}',
+      '--host',
+      '{host}',
+      '--port',
+      '{port}',
+    ];
+    const args = [
+      ...template.map((arg) => arg.replace(/\{(\w+)\}/g, (_match, key: string) => context[key as keyof typeof context] ?? '')),
+      ...(options.extraArgs ?? []),
+    ];
+
+    const child = spawn(resolved.record.binary, args, { stdio: ['ignore', 'pipe', 'pipe'] });
 
     const entry: ProcessEntry = {
       providerId,
@@ -114,7 +124,7 @@ export class BackendLauncher {
     });
 
     try {
-      await waitForHealth(child, port);
+      await waitForHealth(child, port, options.local?.health);
     } catch (error) {
       child.kill('SIGTERM');
       this.processes.delete(providerId);

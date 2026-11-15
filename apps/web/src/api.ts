@@ -6,11 +6,14 @@ import type {
   BackendSettingsInfo,
   BackendsInfo,
   ConversationMeta,
+  GithubBackendInput,
+  LocalBackendInput,
   LocalModelInfo,
   ModelConfigInfo,
   JobInfo,
   ProjectMeta,
   ProviderSummary,
+  ReleaseSummary,
   ResolvedSettingInfo,
   SettingValue,
   StoredMessage,
@@ -323,4 +326,38 @@ export async function streamChat(
       }
     }
   }
+}
+
+export async function browseBackendReleases(repo: string): Promise<ReleaseSummary[]> {
+  const response = await fetch(
+    `/api/backends/custom/releases?repo=${encodeURIComponent(repo)}`,
+  );
+  if (!response.ok) throw new Error('failed to load releases');
+  const payload = (await response.json()) as { releases: ReleaseSummary[] };
+  return payload.releases;
+}
+
+export async function addLocalBackend(input: LocalBackendInput): Promise<void> {
+  const response = await fetch('/api/backends/custom/local', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error('failed to add backend');
+}
+
+export async function addGithubBackend(input: GithubBackendInput): Promise<void> {
+  const response = await fetch('/api/backends/custom/github', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error('failed to add backend');
+}
+
+export async function removeBackend(id: string): Promise<void> {
+  const response = await fetch(`/api/backends/custom/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) throw new Error('failed to remove backend');
 }

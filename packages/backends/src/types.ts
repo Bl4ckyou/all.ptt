@@ -76,6 +76,13 @@ export interface ResolvedSetting extends SettingDefinition {
 
 export type SettingValue = string | number | boolean;
 
+export interface LocalBackend {
+  binary: string;
+  baseArgs?: string[];
+  health?: string;
+  modelArg?: string;
+}
+
 export interface BackendEntry {
   label: string;
   shortLabel?: string;
@@ -85,6 +92,9 @@ export interface BackendEntry {
   settings?: Record<string, SettingMapping>;
   categorySpecTypes?: Record<string, string>;
   selection: SelectionRule[];
+  kind?: 'github' | 'local';
+  local?: LocalBackend;
+  custom?: boolean;
 }
 
 export interface ManifestDefaults {

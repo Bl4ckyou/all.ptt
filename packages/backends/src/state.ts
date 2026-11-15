@@ -1,6 +1,6 @@
-import { readdir } from 'node:fs/promises';
+import { readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { readJsonFile } from './json-file.js';
+import { readJsonFile, writeJsonFile } from './json-file.js';
 import type { InstalledState, InstalledVariant } from './types.js';
 
 export function backendDir(root: string, id: string): string {
@@ -27,6 +27,18 @@ export async function readInstalledState(root: string, id: string): Promise<Inst
     return { backend: id, variants: { [raw.target]: { ...record, variant: raw.variant ?? 'auto', legacy: true } } };
   }
   return emptyState(id);
+}
+
+export async function writeInstalledState(
+  root: string,
+  id: string,
+  state: InstalledState,
+): Promise<void> {
+  await writeJsonFile(installedStatePath(root, id), state);
+}
+
+export async function clearInstalledState(root: string, id: string): Promise<void> {
+  await rm(installedStatePath(root, id), { force: true });
 }
 
 export async function readInstalledStates(root: string): Promise<Record<string, InstalledState>> {
