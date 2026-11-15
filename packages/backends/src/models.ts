@@ -25,6 +25,7 @@ export interface LocalModel {
   quantization?: string | null;
   hasMtp?: boolean;
   chatTemplate?: string | null;
+  tags?: string[];
 }
 
 export interface AuxiliaryFile extends LocalModel {
@@ -170,8 +171,12 @@ async function collect(
       const cached = index.get(real);
       if (cached && cached.mtimeMs === info.mtimeMs && cached.size === info.size) {
         if (cached.ignored || !cached.file) continue;
-        files.push({ ...cached.file, path: full });
-        continue;
+        if (!Array.isArray(cached.file.tags)) {
+          // Older index entry: refresh it to include general.tags.
+        } else {
+          files.push({ ...cached.file, path: full });
+          continue;
+        }
       }
 
       let signature = null;
@@ -209,6 +214,7 @@ async function collect(
         quantization: quantizationOf(entry.name, signature),
         hasMtp: signature?.hasMtp ?? false,
         chatTemplate: signature?.chatTemplate ?? null,
+        tags: signature?.tags ?? [],
         ...(kind === 'draft' ? { category: classification.category } : {}),
       };
       files.push(scanned);

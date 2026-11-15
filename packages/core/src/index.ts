@@ -12,6 +12,7 @@ export { cacheTypeBytes, estimateMemory } from './memory.js';
 export { formatBytes } from './format.js';
 export {
   baseLanguage,
+  isTranslationModel,
   languageName,
   protectTokens,
   restoreTokens,

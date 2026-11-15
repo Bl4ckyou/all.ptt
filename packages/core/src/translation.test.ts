@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { baseLanguage, languageName, protectTokens, restoreTokens } from './translation.js';
+import {
+  baseLanguage,
+  isTranslationModel,
+  languageName,
+  protectTokens,
+  restoreTokens,
+} from './translation.js';
 
 function roundTrip(text: string): string | null {
   const { masked, tokens } = protectTokens(text);
@@ -39,6 +45,22 @@ describe('restoreTokens', () => {
 
   it('returns null for an unknown placeholder', () => {
     expect(restoreTokens('Utiliser \uE0005\uE001', ['--threads'])).toBeNull();
+  });
+});
+
+describe('isTranslationModel', () => {
+  it('detects translation capability from GGUF tags', () => {
+    expect(isTranslationModel(['translation'])).toBe(true);
+    expect(isTranslationModel(['Multilingual', 'Translation'])).toBe(true);
+  });
+
+  it('detects translation capability from the chat template', () => {
+    expect(isTranslationModel([], '{% if target_lang %}x{% endif %}')).toBe(true);
+  });
+
+  it('ignores unrelated models', () => {
+    expect(isTranslationModel(['chat'], '{{ messages }}')).toBe(false);
+    expect(isTranslationModel(undefined)).toBe(false);
   });
 });
 

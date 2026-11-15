@@ -1,4 +1,10 @@
-import { cacheTypeBytes, estimateMemory, formatBytes, type GgufModelInfo } from '@ptt/core';
+import {
+  cacheTypeBytes,
+  estimateMemory,
+  formatBytes,
+  isTranslationModel,
+  type GgufModelInfo,
+} from '@ptt/core';
 import type { Actions } from '../actions.js';
 import { openAddBackendModal } from './add-backend-modal.js';
 import { el, option } from '../dom.js';
@@ -772,11 +778,7 @@ export function createManage(actions: Actions): Manage {
 
           const candidateList = el('div', { class: 'translation-candidates' });
           const translationPool = [...state.localModels, ...state.drafts]
-            .filter(
-              (file) =>
-                /target_lang/.test(file.chatTemplate ?? '') ||
-                /(translat|plamo)/i.test(file.path),
-            )
+            .filter((file) => isTranslationModel(file.tags, file.chatTemplate))
             .sort(
               (a, b) =>
                 Number(/target_lang/.test(b.chatTemplate ?? '')) -

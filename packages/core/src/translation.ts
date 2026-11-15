@@ -37,6 +37,14 @@ export function restoreTokens(masked: string, tokens: string[]): string | null {
   return masked.replace(PLACEHOLDER, (_match, raw: string) => tokens[Number(raw)] ?? '');
 }
 
+export function isTranslationModel(
+  tags: readonly string[] | undefined,
+  chatTemplate?: string | null,
+): boolean {
+  if (/target_lang/.test(chatTemplate ?? '')) return true;
+  return (tags ?? []).some((tag) => /translat/i.test(tag));
+}
+
 export function baseLanguage(locale: string): string {
   return locale.toLowerCase().split(/[-_]/)[0];
 }

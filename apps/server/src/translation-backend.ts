@@ -15,10 +15,10 @@ import {
   scanLocalFiles,
   type RunningBackend,
 } from '@ptt/backends';
-import type { ChatMessage } from '@ptt/core';
+import { isTranslationModel, languageName, type ChatMessage } from '@ptt/core';
 import { OpenAICompatibleProvider } from '@ptt/providers';
 import type { ProviderRegistry } from './providers.js';
-import { ProviderTranslator, type MutableTranslator, type Translator } from './translation.js';
+import type { MutableTranslator, Translator } from './translation.js';
 import {
   clampSpeed,
   concurrencyFor,
@@ -153,18 +153,11 @@ export async function findTranslationCandidates(
 ): Promise<TranslationCandidate[]> {
   const files = await scanLocalFiles(directories);
   const all = [...files.models, ...files.drafts, ...files.auxiliary];
-  const supportsTranslation = (chatTemplate?: string | null): boolean =>
-    /target_lang/.test(chatTemplate ?? '');
-  const matched = all.filter(
-    (file) => supportsTranslation(file.chatTemplate) || /(translat|plamo)/i.test(file.path),
-  );
+  const matched = all.filter((file) => isTranslationModel(file.tags, file.chatTemplate));
 
   const rank = (file: (typeof all)[number]): number => {
-    const value = file.path.toLowerCase();
-    let score = supportsTranslation(file.chatTemplate) ? -6 : 0;
-    if (value.includes('plamo')) score -= 4;
-    if (value.includes('q4_k_m')) score -= 2;
-    if (value.includes('translategemma')) score -= 1;
+    let score = /target_lang/.test(file.chatTemplate ?? '') ? -6 : 0;
+    if (file.path.toLowerCase().includes('q4_k_m')) score -= 2;
     return score;
   };
   matched.sort((a, b) => rank(a) - rank(b));
@@ -334,6 +327,55 @@ async function downloadToHuggingFaceCache(
   return target;
 }
 
+class PromptTranslator implements Translator {
+  constructor(
+    private readonly registry: ProviderRegistry,
+    private readonly onProgress?: (done: number, total: number) => void,
+    private readonly concurrency: () => number = () => 2,
+  ) {}
+
+  async translate(texts: string[], locale: string): Promise<string[]> {
+    const provider = this.registry.get(PROVIDER_ID);
+    if (!provider) throw new Error('translation provider is not running');
+
+    const language = languageName(locale);
+    const code = targetLang(locale);
+    const system =
+      `You are a professional translator. Translate the user's text into ${language} (${code}). ` +
+      'Preserve placeholders like \uE0000\uE001, command-line flags and code spans exactly. ' +
+      'Output only the translation.';
+
+    let done = 0;
+    return mapLimit(texts, this.concurrency(), async (text) => {
+      const pieces: string[] = [];
+      try {
+        for (const chunk of splitForTranslation(text)) {
+          let content = '';
+          for await (const event of provider.chat({
+            model: MODEL_ALIAS,
+            messages: [
+              { role: 'system', content: system },
+              { role: 'user', content: chunk },
+            ],
+            temperature: 0,
+            maxTokens: 768,
+            signal: AbortSignal.timeout(45_000),
+          })) {
+            if (event.type === 'content') content += event.delta;
+          }
+          if (!content.trim()) return '';
+          pieces.push(content.trim());
+        }
+      } catch {
+        return '';
+      }
+      done += 1;
+      this.onProgress?.(done, texts.length);
+      return pieces.join(' ');
+    });
+  }
+}
+
 class ManagedTranslator implements Translator {
   constructor(private readonly manager: TranslationManager) {}
 
@@ -491,7 +533,11 @@ export class TranslationManager {
           (done, total) => this.updateProgress(done, total),
           () => this.concurrency(),
         )
-      : new ProviderTranslator(this.registry, { providerId: PROVIDER_ID, model: MODEL_ALIAS });
+      : new PromptTranslator(
+          this.registry,
+          (done, total) => this.updateProgress(done, total),
+          () => this.concurrency(),
+        );
   }
 
   async disable(): Promise<void> {

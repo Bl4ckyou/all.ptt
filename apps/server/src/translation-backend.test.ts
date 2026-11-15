@@ -38,12 +38,25 @@ function entry(key: string, type: number, value: Buffer): Buffer {
   return Buffer.concat([text(key), u32(type), value]);
 }
 
-function gguf(name: string): Buffer {
+function gguf(name: string, withTargetLang = true, tags: string[] = []): Buffer {
   const entries = [
     entry('general.architecture', 8, text('plamo')),
     entry('general.name', 8, text(name)),
     entry('plamo.context_length', 4, u32(8192)),
-    entry('tokenizer.chat_template', 8, text('{% if target_lang %}x{% endif %}')),
+    entry(
+      'tokenizer.chat_template',
+      8,
+      text(withTargetLang ? '{% if target_lang %}x{% endif %}' : '{{ messages }}'),
+    ),
+    ...(tags.length > 0
+      ? [
+          entry(
+            'general.tags',
+            9,
+            Buffer.concat([u32(8), u64(tags.length), ...tags.map((tag) => text(tag))]),
+          ),
+        ]
+      : []),
   ];
   return Buffer.concat([
     Buffer.from('GGUF', 'ascii'),
@@ -112,6 +125,19 @@ describe('findTranslationModel', () => {
     const candidates = await findTranslationCandidates([models]);
     expect(candidates.map((candidate) => candidate.path)).toContain(file);
     expect(candidates.find((candidate) => candidate.path === file)?.targetLang).toBe(true);
+  });
+
+  it('detects named translation models without a target_lang template', async () => {
+    const emptyHub = await workspace();
+    process.env.HF_HUB_CACHE = emptyHub;
+    const models = await workspace();
+    const file = join(models, 'Hy-MT2-30B-A3B.i1-IQ3_XXS.gguf');
+    await writeFile(file, gguf('Hy MT2 30B A3B', false, ['translation']));
+
+    const candidates = await findTranslationCandidates([models]);
+    const candidate = candidates.find((entry) => entry.path === file);
+    expect(candidate).toBeTruthy();
+    expect(candidate?.targetLang).toBe(false);
   });
 
   it('returns null when nothing is found', async () => {
