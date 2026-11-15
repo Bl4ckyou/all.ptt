@@ -3,11 +3,13 @@ import { stat } from 'node:fs/promises';
 import { listModelDirectories, readGgufInfo, revealPath, scanLocalFiles } from '@ptt/backends';
 import type { AppContext } from '../context.js';
 import { readJson, sendError, sendJson } from '../http.js';
+import { refreshQuantTypes } from '../quant-types.js';
 import type { Handler } from '../router.js';
 import { isGgufPath, isWithin } from '../validation.js';
 
 export function localModelsRoute(context: AppContext): Handler {
   return async ({ res }) => {
+    await refreshQuantTypes(context.root);
     const [files, directories] = await Promise.all([
       scanLocalFiles(context.modelDirs),
       listModelDirectories(context.modelDirs),

@@ -142,6 +142,18 @@ From **Manage → Add backend** you can register:
 Custom backends are stored outside the repository in `.ptt/backends.json`, so
 they survive updates of PTT itself.
 
+### Native backend introspection
+
+Once a backend is installed, PTT reads its real `--help` and turns every
+discovered option into a setting: booleans, numbers, strings and enums, with
+the help description used as the label text. Curated settings keep priority;
+generated ones are placed under **Advanced** so they stay available without
+cluttering the main form. Nothing is emitted unless the user sets a value.
+
+Quantization names are also read from the backend's sibling `llama-quantize`
+(when present), so forks and future releases are covered without editing code.
+This applies to built-in, local and GitHub-added backends alike.
+
 ### Install binaries from the UI
 
 Open **Manage**, choose a backend variant and click **Install** or **Update**.

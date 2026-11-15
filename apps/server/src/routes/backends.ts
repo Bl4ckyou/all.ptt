@@ -5,6 +5,7 @@ import {
   readInstalledStates,
   readModelConfig,
   recommendBackend,
+  resolveBackend,
   resolveInstalledBinary,
   resolveSettings,
   selectAsset,
@@ -132,10 +133,15 @@ export function backendSettingsRoute(context: AppContext): Handler {
     }
 
     const resolved = await resolveInstalledBinary(context.root, id);
-    const { settings, probed } = await resolveSettings(
+    const effective = await resolveBackend(
       resolved?.record.binary ?? null,
       backend,
       context.manifest.settings,
+    );
+    const { settings, probed } = await resolveSettings(
+      resolved?.record.binary ?? null,
+      effective.backend,
+      effective.catalog,
     );
 
     const entries = settings.map(({ flag: _flag, invert: _invert, ...rest }) => rest);
@@ -300,11 +306,14 @@ export function launchBackendRoute(context: AppContext): Handler {
 
       const backendId = resolved.backendId;
       const backend = context.manifest.backends[backendId];
+      const effective = backend
+        ? await resolveBackend(resolved.record.binary, backend, context.manifest.settings)
+        : null;
       const config = await readModelConfig(context.root, body.modelPath);
-      const extraArgs = backend
+      const extraArgs = effective
         ? buildSettingArgs(
-            backend,
-            context.manifest.settings,
+            effective.backend,
+            effective.catalog,
             config?.settings ?? {},
             config?.extraArgs ?? '',
           )

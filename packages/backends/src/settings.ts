@@ -1,5 +1,4 @@
-import { spawn } from 'node:child_process';
-import { stat } from 'node:fs/promises';
+import { discoverHelpOptions } from './help.js';
 import type {
   BackendEntry,
   ResolvedSetting,
@@ -13,13 +12,6 @@ export interface ResolvedSettingWithFlag extends ResolvedSetting {
   invert?: boolean;
 }
 
-interface HelpCacheEntry {
-  mtimeMs: number;
-  flags: Set<string> | null;
-}
-
-const helpCache = new Map<string, HelpCacheEntry>();
-
 export function parseLongFlags(text: string): Set<string> {
   const flags = new Set<string>();
   for (const match of text.matchAll(/--[a-zA-Z0-9][a-zA-Z0-9-]*/g)) {
@@ -28,51 +20,10 @@ export function parseLongFlags(text: string): Set<string> {
   return flags;
 }
 
-function readHelp(binary: string): Promise<string | null> {
-  return new Promise((resolve) => {
-    let output = '';
-    let settled = false;
-
-    const finish = (value: string | null): void => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      resolve(value);
-    };
-
-    const child = spawn(binary, ['--help'], { stdio: ['ignore', 'pipe', 'pipe'] });
-    const timer = setTimeout(() => {
-      child.kill('SIGKILL');
-      finish(output || null);
-    }, 6000);
-
-    child.stdout?.on('data', (chunk: Buffer) => {
-      output += chunk.toString();
-    });
-    child.stderr?.on('data', (chunk: Buffer) => {
-      output += chunk.toString();
-    });
-    child.once('error', () => finish(null));
-    child.once('exit', () => finish(output || null));
-  });
-}
-
 // Read the real flags supported by an installed binary (survives renames).
 export async function discoverFlags(binary: string): Promise<Set<string> | null> {
-  let mtimeMs: number;
-  try {
-    mtimeMs = (await stat(binary)).mtimeMs;
-  } catch {
-    return null;
-  }
-
-  const cached = helpCache.get(binary);
-  if (cached && cached.mtimeMs === mtimeMs) return cached.flags;
-
-  const help = await readHelp(binary);
-  const flags = help ? parseLongFlags(help) : null;
-  helpCache.set(binary, { mtimeMs, flags });
-  return flags;
+  const options = await discoverHelpOptions(binary);
+  return options ? new Set(options.flatMap((option) => option.aliases)) : null;
 }
 
 function mappingOf(mapping: SettingMapping): {

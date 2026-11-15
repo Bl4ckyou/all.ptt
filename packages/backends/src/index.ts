@@ -61,7 +61,12 @@ export {
 export type { AuxiliaryFile, GgufKind, LocalFiles, LocalModel } from './models.js';
 export { listModelDirectories } from './models.js';
 export { revealPath } from './reveal.js';
-export { readGgufInfo, readGgufSignature, classifyGguf } from './gguf.js';
+export {
+  readGgufInfo,
+  readGgufSignature,
+  classifyGguf,
+  mergeFileTypeNames,
+} from './gguf.js';
 export type { GgufCategory, GgufClassification, GgufSignature } from './gguf.js';
 export {
   buildSettingArgs,
@@ -71,6 +76,15 @@ export {
   resolveSettings,
 } from './settings.js';
 export type { ResolvedSettingWithFlag } from './settings.js';
+export {
+  buildHelpSettings,
+  discoverHelpOptions,
+  discoverQuantTypes,
+  parseHelpOptions,
+  readHelpOutput,
+  resolveBackend,
+} from './help.js';
+export type { HelpOption, HelpSettings } from './help.js';
 export {
   configsPath,
   readModelConfig,

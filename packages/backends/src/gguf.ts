@@ -2,6 +2,15 @@ import { open, stat, type FileHandle } from 'node:fs/promises';
 import type { GgufModelInfo } from '@ptt/core';
 import { FILE_TYPE_NAMES } from './file-types.generated.js';
 
+const discoveredFileTypes = new Map<number, string>();
+
+export function mergeFileTypeNames(types: Record<number, string>): void {
+  for (const [id, name] of Object.entries(types)) {
+    const key = Number(id);
+    if (!discoveredFileTypes.has(key)) discoveredFileTypes.set(key, name);
+  }
+}
+
 const MAGIC = 0x46554747;
 const CHUNK_SIZE = 256 * 1024;
 
@@ -334,7 +343,9 @@ const QUANT_IN_NAME = /(?<![A-Z0-9])(I?P?T?Q\d+(?:_[A-Z0-9]+)*|BF16|F16|F32|FP16
 export function quantizationOf(fileName: string, signature: GgufSignature | null): string | null {
   const fileType = signature?.fileType;
   const fromMetadata =
-    fileType != null ? (FILE_TYPE_NAMES[fileType] ?? `FTYPE_${fileType}`) : null;
+    fileType != null
+      ? (discoveredFileTypes.get(fileType) ?? FILE_TYPE_NAMES[fileType] ?? `FTYPE_${fileType}`)
+      : null;
   const fromName = fileName
     .replace(/\.gguf$/i, '')
     .match(QUANT_IN_NAME)
