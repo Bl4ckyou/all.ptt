@@ -31,7 +31,7 @@ export interface Actions {
   openNotes(): void;
   scanModels(): Promise<void>;
   revealPath(target: string): Promise<void>;
-  getBackendSettings(backendId: string): Promise<BackendSettingsInfo>;
+  getBackendSettings(backendId: string, locale?: string): Promise<BackendSettingsInfo>;
   getModelConfig(path: string): Promise<ModelConfigInfo | null>;
   getModelInfo(path: string): Promise<GgufModelInfo | null>;
   saveModelConfig(

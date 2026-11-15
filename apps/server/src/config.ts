@@ -2,12 +2,18 @@ import { readFile } from 'node:fs/promises';
 import { delimiter, resolve } from 'node:path';
 import type { ProviderConfig } from '@ptt/providers';
 
+export interface TranslationOptions {
+  providerId: string;
+  model: string;
+}
+
 export interface AppConfig {
   host: string;
   port: number;
   providers: ProviderConfig[];
   backendRoot: string;
   modelDirs: string[];
+  translation?: TranslationOptions;
 }
 
 const defaults: AppConfig = {
@@ -37,6 +43,19 @@ async function readConfigFile(path: string): Promise<Partial<AppConfig>> {
   }
 }
 
+function readTranslation(
+  file: Partial<AppConfig>,
+  env: NodeJS.ProcessEnv,
+): TranslationOptions | undefined {
+  const providerId = env.PTT_TRANSLATION_PROVIDER ?? file.translation?.providerId;
+  const model = env.PTT_TRANSLATION_MODEL ?? file.translation?.model;
+  if (!providerId && !model) return undefined;
+  if (!providerId || !model) {
+    throw new Error('translation requires both providerId and model');
+  }
+  return { providerId, model };
+}
+
 export async function loadConfig(): Promise<AppConfig> {
   const file = await readConfigFile(process.env.PTT_CONFIG ?? 'config.json');
   const env = process.env;
@@ -49,5 +68,6 @@ export async function loadConfig(): Promise<AppConfig> {
     modelDirs: env.PTT_MODEL_DIRS
       ? env.PTT_MODEL_DIRS.split(delimiter).filter(Boolean)
       : (file.modelDirs ?? defaults.modelDirs),
+    translation: readTranslation(file, env),
   };
 }

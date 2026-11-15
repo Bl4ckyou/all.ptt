@@ -105,7 +105,28 @@ Create `config.json` (see `config.example.json`):
 ```
 
 Environment overrides: `PTT_HOST`, `PTT_PORT`, `PTT_CONFIG`,
-`PTT_BACKEND_ROOT`, `PTT_MODEL_DIRS` (path-delimiter separated).
+`PTT_BACKEND_ROOT`, `PTT_MODEL_DIRS` (path-delimiter separated),
+`PTT_TRANSLATION_PROVIDER`, `PTT_TRANSLATION_MODEL`.
+
+### Optional: translate backend help dynamically
+
+Backend settings that come from `--help` (no curated i18n key) can be
+translated on demand through a model already served by one of your providers:
+
+```json
+{
+  "translation": {
+    "providerId": "llama-cpp",
+    "model": "plamo-3-translate-0.8b-Q4_K_M"
+  }
+}
+```
+
+`PLaMo 3 Translate 0.8B` ships official GGUF files and runs natively on
+llama.cpp (about 0.57 GB at Q4_K_M, 53 languages including Simplified and
+Traditional Chinese). NLLB and T5 are encoder-decoder models and are **not**
+usable through `llama-server`; they are intentionally not supported. When
+translation is disabled or fails, descriptions fall back to English.
 
 ### Install binaries from the UI
 
@@ -215,6 +236,7 @@ npm run build:binary   # requires Bun; output: dist/ptt
 | `providers` | Static OpenAI-compatible providers |
 | `backendRoot` | Folder containing `.backends/` (default: current folder) |
 | `modelDirs` | Extra folders searched for GGUF files |
+| `translation` | Optional `{ providerId, model }` used to translate dynamic backend help |
 
 Runtime data lives under `.backends/` (downloaded binaries) and `.ptt/`
 (per-model settings and projects). Both are gitignored.

@@ -76,5 +76,6 @@ export {
   writeModelConfig,
 } from './configs.js';
 export type { ModelConfig, ModelConfigMap } from './configs.js';
+export { readJsonFile, writeJsonFile } from './json-file.js';
 export { BackendLauncher, findFreePort } from './launch.js';
 export type { LaunchOptions, RunningBackend } from './launch.js';

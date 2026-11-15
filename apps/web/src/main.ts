@@ -284,8 +284,11 @@ async function revealPathAction(target: string): Promise<void> {
   }
 }
 
-async function getBackendSettingsAction(backendId: string): Promise<BackendSettingsInfo> {
-  return getBackendSettings(backendId);
+async function getBackendSettingsAction(
+  backendId: string,
+  locale?: string,
+): Promise<BackendSettingsInfo> {
+  return getBackendSettings(backendId, locale);
 }
 
 async function getModelConfigAction(path: string): Promise<ModelConfigInfo | null> {

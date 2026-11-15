@@ -45,7 +45,9 @@ export interface SettingDefinition {
   min?: number;
   max?: number;
   choices?: string[];
-  descriptionKey: string;
+  descriptionKey?: string;
+  label?: string;
+  description?: string;
   advanced?: boolean;
   platforms?: string[];
   fileKind?: FileKind;

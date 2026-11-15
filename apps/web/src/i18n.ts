@@ -4,6 +4,11 @@ import { getCatalog } from './api.js';
 const STORAGE_KEY = 'ptt.locale';
 const sources = new Map<string, string>();
 let translator: Translator | null = null;
+let current = 'en';
+
+export function currentLocale(): string {
+  return current;
+}
 
 export function readStoredLocale(): string | null {
   return localStorage.getItem(STORAGE_KEY);
@@ -23,6 +28,7 @@ export async function loadI18n(locale: string, defaultLocale: string): Promise<v
     }),
   );
 
+  current = locale;
   translator = new Translator(locale, Object.fromEntries(sources), defaultLocale);
 }
 

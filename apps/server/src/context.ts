@@ -2,6 +2,7 @@ import type { BackendLauncher, Manifest } from '@ptt/backends';
 import type { JobManager } from './jobs.js';
 import type { ProviderRegistry } from './providers.js';
 import type { ProjectStore } from './projects.js';
+import type { TranslationService } from './translation.js';
 
 export interface AppContext {
   registry: ProviderRegistry;
@@ -11,4 +12,5 @@ export interface AppContext {
   manifest: Manifest;
   root: string;
   modelDirs: string[];
+  translation: TranslationService;
 }

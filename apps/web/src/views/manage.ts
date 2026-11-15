@@ -1,7 +1,7 @@
 import { cacheTypeBytes, estimateMemory, formatBytes, type GgufModelInfo } from '@ptt/core';
 import type { Actions } from '../actions.js';
 import { el, option } from '../dom.js';
-import { t } from '../i18n.js';
+import { currentLocale, t } from '../i18n.js';
 import { icon, type IconName } from '../icons.js';
 import { draftCategory, draftMatchScore, mmprojMatchScore } from '../matching.js';
 import { state } from '../state.js';
@@ -486,8 +486,14 @@ export function createManage(actions: Actions): Manage {
   function settingRow(setting: ResolvedSettingInfo): HTMLElement {
     return el('div', { class: `setting-row${setting.type === 'path' ? ' path-row' : ''}` }, [
       el('div', { class: 'setting-info' }, [
-        el('span', { class: 'setting-name', text: t(`setting-${setting.id}`) }),
-        el('span', { class: 'setting-desc muted', text: t(setting.descriptionKey) }),
+        el('span', {
+          class: 'setting-name',
+          text: setting.label ?? t(`setting-${setting.id}`),
+        }),
+        el('span', {
+          class: 'setting-desc muted',
+          text: setting.descriptionKey ? t(setting.descriptionKey) : (setting.description ?? ''),
+        }),
       ]),
       settingControl(setting),
     ]);
@@ -637,7 +643,7 @@ export function createManage(actions: Actions): Manage {
 
     try {
       const [settingsInfo, config, info] = await Promise.all([
-        actions.getBackendSettings(configBackend),
+        actions.getBackendSettings(configBackend, currentLocale()),
         actions.getModelConfig(model.path),
         actions.getModelInfo(model.path),
       ]);

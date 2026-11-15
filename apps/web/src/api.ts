@@ -120,8 +120,13 @@ export async function revealPath(target: string): Promise<void> {
   if (!response.ok) throw new Error('failed to open folder');
 }
 
-export async function getBackendSettings(backendId: string): Promise<BackendSettingsInfo> {
-  const response = await fetch(`/api/backends/settings?backendId=${encodeURIComponent(backendId)}`);
+export async function getBackendSettings(
+  backendId: string,
+  locale = 'en',
+): Promise<BackendSettingsInfo> {
+  const response = await fetch(
+    `/api/backends/settings?backendId=${encodeURIComponent(backendId)}&locale=${encodeURIComponent(locale)}`,
+  );
   if (!response.ok) throw new Error('failed to load settings');
   return (await response.json()) as BackendSettingsInfo;
 }

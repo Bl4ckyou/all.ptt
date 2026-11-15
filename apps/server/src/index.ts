@@ -7,6 +7,7 @@ import { JobManager } from './jobs.js';
 import { ProviderRegistry } from './providers.js';
 import { ProjectStore } from './projects.js';
 import { serveStatic } from './static.js';
+import { ProviderTranslator, TranslationService } from './translation.js';
 
 const config = await loadConfig().catch((error: Error) => {
   console.error(`Failed to load config: ${error.message}`);
@@ -16,6 +17,10 @@ const registry = new ProviderRegistry(config.providers);
 const launcher = new BackendLauncher(config.backendRoot, (providerId) => registry.remove(providerId));
 const jobs = new JobManager();
 const projects = new ProjectStore(config.backendRoot);
+const translator = config.translation
+  ? new ProviderTranslator(registry, config.translation)
+  : null;
+const translation = new TranslationService(config.backendRoot, translator);
 const context = {
   registry,
   launcher,
@@ -24,6 +29,7 @@ const context = {
   manifest: loadManifest(),
   root: config.backendRoot,
   modelDirs: config.modelDirs,
+  translation,
 };
 const app = createApp(context);
 
