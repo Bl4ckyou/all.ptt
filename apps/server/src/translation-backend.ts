@@ -1,5 +1,6 @@
 import { createWriteStream } from 'node:fs';
-import { mkdir, rename, stat } from 'node:fs/promises';
+import { mkdir, readdir, rename, stat } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import {
   BackendLauncher,
@@ -52,6 +53,64 @@ function targetLang(locale: string): string {
 
 function publicModelPath(root: string): string {
   return join(root, '.ptt', 'translation', 'plamo-3-translate-0.8b-Q4_K_M.gguf');
+}
+
+const MODEL_PATTERN = /plamo.*translate.*\.gguf$/i;
+
+async function findInDirectory(
+  base: string,
+  depth: number,
+  budget: { left: number },
+): Promise<string | null> {
+  if (depth < 0 || budget.left <= 0) return null;
+
+  let entries;
+  try {
+    entries = await readdir(base, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+
+  const files: string[] = [];
+  const directories: string[] = [];
+
+  for (const entry of entries) {
+    budget.left -= 1;
+    if (budget.left <= 0) break;
+    const path = join(base, entry.name);
+    if (entry.isDirectory()) directories.push(path);
+    else if ((entry.isFile() || entry.isSymbolicLink()) && MODEL_PATTERN.test(entry.name)) {
+      files.push(path);
+    }
+  }
+
+  const rank = (path: string): number => (path.toLowerCase().includes('q4_k_m') ? 0 : 1);
+  files.sort((a, b) => rank(a) - rank(b));
+  for (const file of files) {
+    const info = await stat(file).catch(() => null);
+    if (info?.size && info.size > 1024) return file;
+  }
+
+  for (const directory of directories) {
+    const found = await findInDirectory(directory, depth - 1, budget);
+    if (found) return found;
+  }
+  return null;
+}
+
+export async function findTranslationModel(directories: string[]): Promise<string | null> {
+  const hub =
+    process.env.HF_HUB_CACHE ??
+    (process.env.HF_HOME
+      ? join(process.env.HF_HOME, 'hub')
+      : join(homedir(), '.cache', 'huggingface', 'hub'));
+
+  const bases = new Set<string>([hub, ...directories]);
+  for (const base of bases) {
+    const found = await findInDirectory(base, 6, { left: 4000 });
+    if (found) return found;
+  }
+  return null;
 }
 
 async function mapLimit<T, R>(
@@ -138,6 +197,7 @@ export class TranslationManager {
     private readonly registry: ProviderRegistry,
     private readonly launcher: BackendLauncher,
     private readonly translator: MutableTranslator,
+    private readonly modelDirs: string[] = [],
   ) {
     if (translator.inner) {
       this.state = { status: 'ready', progress: 0, total: 0, providerId: PROVIDER_ID };
@@ -170,6 +230,12 @@ export class TranslationManager {
       const existing = await stat(destination).catch(() => null);
       if (existing?.isFile() && existing.size > 1024) {
         await this.enableWithModel(destination);
+        return;
+      }
+
+      const cached = await findTranslationModel(this.modelDirs);
+      if (cached) {
+        await this.enableWithModel(cached);
         return;
       }
 

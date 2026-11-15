@@ -29,6 +29,7 @@ const translationManager = new TranslationManager(
   registry,
   launcher,
   translator,
+  config.modelDirs,
 );
 const manifest = loadManifest();
 const custom = await readCustomBackends(config.backendRoot);
