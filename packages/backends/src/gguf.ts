@@ -106,6 +106,10 @@ async function readNumbers(reader: ByteReader, type: number): Promise<number | n
   if (type === 9) {
     const elementType = await reader.u32();
     const count = await reader.u64();
+    if (elementType === 8) {
+      for (let index = 0; index < count; index += 1) await reader.skipString();
+      return null;
+    }
     if (elementType !== 4 && elementType !== 5) {
       const size = FIXED_SIZES[elementType];
       if (!size) throw new Error(`unsupported gguf array type: ${elementType}`);
@@ -123,72 +127,10 @@ async function readNumbers(reader: ByteReader, type: number): Promise<number | n
   return null;
 }
 
-function scalar(value: number | number[] | undefined): number | null {
-  if (value === undefined) return null;
+function scalar(value: number | number[] | null | undefined): number | null {
+  if (value == null) return null;
   if (Array.isArray(value)) return value.length > 0 ? Math.max(...value) : null;
   return value;
-}
-
-const WANTED = [
-  'block_count',
-  'embedding_length',
-  'attention.head_count',
-  'attention.head_count_kv',
-  'context_length',
-];
-
-const cache = new Map<string, { mtimeMs: number; info: GgufModelInfo }>();
-
-export async function readGgufInfo(path: string): Promise<GgufModelInfo> {  const fileStat = await stat(path);
-  const cached = cache.get(path);
-  if (cached && cached.mtimeMs === fileStat.mtimeMs) return cached.info;
-
-  const handle = await open(path, 'r');
-  try {
-    const reader = new ByteReader(handle);
-    const magic = (await reader.bytes(4)).readUInt32LE(0);
-    if (magic !== MAGIC) throw new Error('not a gguf file');
-
-    await reader.u32();
-    await reader.u64();
-    const kvCount = await reader.u64();
-
-    let architecture: string | null = null;
-    const values: Record<string, number | number[]> = {};    for (let index = 0; index < kvCount; index++) {
-      const key = await reader.text();
-      const type = await reader.u32();
-
-      if (key === 'general.architecture') {
-        architecture = type === 8 ? await reader.text() : null;
-        if (type !== 8) await skipValue(reader, type);
-        continue;
-      }
-
-      const wanted = WANTED.find((suffix) => key === suffix || key.endsWith(`.${suffix}`));
-      if (!wanted) {
-        await skipValue(reader, type);
-        continue;
-      }
-
-      const value = await readNumbers(reader, type);
-      if (value !== null) values[wanted] = value;
-    }
-
-    const info: GgufModelInfo = {
-      size: fileStat.size,
-      blockCount: scalar(values.block_count),
-      embeddingLength: scalar(values.embedding_length),
-      headCount: scalar(values['attention.head_count']),
-      headCountKv: scalar(values['attention.head_count_kv']),
-      contextLength: scalar(values.context_length),
-    };
-
-    void architecture;
-    cache.set(path, { mtimeMs: fileStat.mtimeMs, info });
-    return info;
-  } finally {
-    await handle.close();
-  }
 }
 
 export type GgufCategory =
@@ -220,174 +162,165 @@ export interface GgufClassification {
   category: GgufCategory;
 }
 
-const SIGNATURE_BYTES = 128 * 1024;
-const signatureCache = new Map<string, { mtimeMs: number; signature: GgufSignature }>();
+interface GgufMeta {
+  signature: GgufSignature;
+  info: GgufModelInfo;
+}
 
-function parseSignature(buffer: Buffer): GgufSignature {
-  const signature: GgufSignature = {
+class InvalidGgufError extends Error {}
+
+const metadataCache = new Map<string, { mtimeMs: number; meta: GgufMeta }>();
+
+function emptySignature(): GgufSignature {
+  return {
     architecture: null,
     generalType: null,
     name: null,
     basename: null,
     tags: [],
+    fileType: null,
     blockCount: null,
     embeddingLength: null,
     contextLength: null,
-    fileType: null,
     hasTokenizer: false,
     hasMtp: false,
   };
-
-  let position = 0;
-  const ensure = (size: number): void => {
-    if (position + size > buffer.length) throw new RangeError('eof');
-  };
-  const u32 = (): number => {
-    ensure(4);
-    const value = buffer.readUInt32LE(position);
-    position += 4;
-    return value;
-  };
-  const i32 = (): number => {
-    ensure(4);
-    const value = buffer.readInt32LE(position);
-    position += 4;
-    return value;
-  };
-  const u64 = (): number => {
-    ensure(8);
-    const value = Number(buffer.readBigUInt64LE(position));
-    position += 8;
-    return value;
-  };
-  const text = (): string => {
-    const length = u64();
-    ensure(length);
-    const value = buffer.toString('utf8', position, position + length);
-    position += length;
-    return value;
-  };
-  const skip = (size: number): void => {
-    ensure(size);
-    position += size;
-  };
-
-  const skipArrayElements = (elementType: number, count: number): void => {
-    if (elementType === 8) {
-      for (let index = 0; index < count; index++) skip(u64());
-      return;
-    }
-    const size = FIXED_SIZES[elementType];
-    if (!size) throw new Error(`unsupported gguf array type: ${elementType}`);
-    skip(size * count);
-  };
-
-  const skipValue = (type: number): void => {
-    if (type === 8) {
-      skip(u64());
-      return;
-    }
-    if (type === 9) {
-      const elementType = u32();
-      const count = u64();
-      skipArrayElements(elementType, count);
-      return;
-    }
-    const size = FIXED_SIZES[type];
-    if (!size) throw new Error(`unsupported gguf value type: ${type}`);
-    skip(size);
-  };
-
-  const readStringArray = (): string[] | null => {
-    const elementType = u32();
-    const count = u64();
-    if (elementType !== 8) {
-      skipArrayElements(elementType, count);
-      return null;
-    }
-    const items: string[] = [];
-    for (let index = 0; index < count; index++) {
-      const value = text();
-      if (index < 16) items.push(value);
-    }
-    return items;
-  };
-
-  const readNumber = (type: number): number | null => {
-    if (type === 4) return u32();
-    if (type === 5) return i32();
-    if (type === 10) return u64();
-    skipValue(type);
-    return null;
-  };
-
-  try {
-    if (buffer.length < 4 || buffer.toString('ascii', 0, 4) !== 'GGUF') return signature;
-    position = 4;
-    u32();
-    u64();
-    const kvCount = u64();
-
-    for (let index = 0; index < kvCount; index++) {
-      const key = text();
-      const type = u32();
-      if (/mtp/i.test(key)) signature.hasMtp = true;
-
-      if (key === 'general.architecture' && type === 8) signature.architecture = text();
-      else if (key === 'general.type' && type === 8) signature.generalType = text();
-      else if (key === 'general.name' && type === 8) signature.name = text();
-      else if (key === 'general.basename' && type === 8) signature.basename = text();
-      else if (key === 'general.tags' && type === 9) signature.tags = readStringArray() ?? [];
-      else if (key === 'general.file_type') signature.fileType = readNumber(type);
-      else if (key.endsWith('.block_count')) signature.blockCount = readNumber(type);
-      else if (key.endsWith('.embedding_length')) signature.embeddingLength = readNumber(type);
-      else if (key.endsWith('.context_length')) signature.contextLength = readNumber(type);
-      else {
-        skipValue(type);
-        if (key.startsWith('tokenizer.')) {
-          signature.hasTokenizer = true;
-          if (signature.architecture || signature.generalType || signature.name) break;
-        }
-      }
-    }
-  } catch {
-    // truncated buffer: keep whatever was parsed
-  }
-
-  const metadataText = [
-    signature.architecture,
-    signature.name,
-    signature.basename,
-    ...signature.tags,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-
-  if (/(^|[^a-z0-9])(mtp|assistant)([^a-z0-9]|$)/.test(metadataText)) {
-    signature.hasMtp = true;
-  }
-
-  return signature;
 }
 
-export async function readGgufSignature(path: string): Promise<GgufSignature> {
-  const fileStat = await stat(path);
-  const cached = signatureCache.get(path);
-  if (cached && cached.mtimeMs === fileStat.mtimeMs) return cached.signature;
+async function readText(reader: ByteReader, type: number): Promise<string | null> {
+  if (type !== 8) {
+    await skipValue(reader, type);
+    return null;
+  }
+  return reader.text();
+}
 
-  const size = Math.min(SIGNATURE_BYTES, fileStat.size);
-  const buffer = Buffer.alloc(size);
+async function readStringElements(reader: ByteReader): Promise<string[]> {
+  const elementType = await reader.u32();
+  const count = await reader.u64();
+  if (elementType !== 8) {
+    const size = FIXED_SIZES[elementType];
+    if (!size) throw new Error(`unsupported gguf array type: ${elementType}`);
+    await reader.skip(size * count);
+    return [];
+  }
+
+  const values: string[] = [];
+  for (let index = 0; index < count; index += 1) {
+    if (index < 256) values.push(await reader.text());
+    else await reader.skipString();
+  }
+  return values;
+}
+
+async function scanGguf(path: string): Promise<GgufMeta> {
+  const fileStat = await stat(path);
+  const cached = metadataCache.get(path);
+  if (cached && cached.mtimeMs === fileStat.mtimeMs) return cached.meta;
+
   const handle = await open(path, 'r');
   try {
-    await handle.read(buffer, 0, size, 0);
+    const reader = new ByteReader(handle);
+    const magic = (await reader.bytes(4)).readUInt32LE(0);
+    if (magic !== MAGIC) throw new InvalidGgufError('not a gguf file');
+
+    await reader.u32();
+    await reader.u64();
+    const kvCount = await reader.u64();
+
+    const signature = emptySignature();
+    const values: Record<string, number | number[]> = {};
+
+    metadata: for (let index = 0; index < kvCount; index += 1) {
+      let key: string;
+      let type: number;
+      try {
+        key = await reader.text();
+        type = await reader.u32();
+      } catch {
+        break;
+      }
+
+      if (/mtp/i.test(key)) signature.hasMtp = true;
+
+      try {
+        if (key === 'general.architecture') {
+          signature.architecture = await readText(reader, type);
+        } else if (key === 'general.type') {
+          signature.generalType = await readText(reader, type);
+        } else if (key === 'general.name') {
+          signature.name = await readText(reader, type);
+        } else if (key === 'general.basename') {
+          signature.basename = await readText(reader, type);
+        } else if (key === 'general.tags' && type === 9) {
+          signature.tags = await readStringElements(reader);
+        } else if (key === 'general.file_type') {
+          signature.fileType = scalar(await readNumbers(reader, type));
+        } else if (key.endsWith('.block_count')) {
+          signature.blockCount = scalar(await readNumbers(reader, type));
+          values.block_count = signature.blockCount ?? [];
+        } else if (key.endsWith('.embedding_length')) {
+          signature.embeddingLength = scalar(await readNumbers(reader, type));
+          values.embedding_length = signature.embeddingLength ?? [];
+        } else if (key.endsWith('.context_length')) {
+          signature.contextLength = scalar(await readNumbers(reader, type));
+          values.context_length = signature.contextLength ?? [];
+        } else if (key.endsWith('.attention.head_count')) {
+          values['attention.head_count'] = (await readNumbers(reader, type)) ?? [];
+        } else if (key.endsWith('.attention.head_count_kv')) {
+          values['attention.head_count_kv'] = (await readNumbers(reader, type)) ?? [];
+        } else {
+          await skipValue(reader, type);
+          if (key.startsWith('tokenizer.')) {
+            signature.hasTokenizer = true;
+            if (signature.architecture || signature.generalType || signature.name) break metadata;
+          }
+        }
+      } catch {
+        break;
+      }
+    }
+
+    const metadataText = [
+      signature.architecture,
+      signature.name,
+      signature.basename,
+      ...signature.tags,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    if (/(^|[^a-z0-9])mtp([^a-z0-9]|$)/.test(metadataText)) signature.hasMtp = true;
+
+    const info: GgufModelInfo = {
+      size: fileStat.size,
+      blockCount: scalar(values.block_count),
+      embeddingLength: scalar(values.embedding_length),
+      headCount: scalar(values['attention.head_count']),
+      headCountKv: scalar(values['attention.head_count_kv']),
+      contextLength: scalar(values.context_length),
+    };
+
+    const meta: GgufMeta = { signature, info };
+    metadataCache.set(path, { mtimeMs: fileStat.mtimeMs, meta });
+    return meta;
   } finally {
     await handle.close();
   }
+}
 
-  const signature = parseSignature(buffer);
-  signatureCache.set(path, { mtimeMs: fileStat.mtimeMs, signature });
-  return signature;
+export async function readGgufInfo(path: string): Promise<GgufModelInfo> {
+  return (await scanGguf(path)).info;
+}
+
+export async function readGgufSignature(path: string): Promise<GgufSignature> {
+  try {
+    return (await scanGguf(path)).signature;
+  } catch (error) {
+    if (error instanceof InvalidGgufError) return emptySignature();
+    throw error;
+  }
 }
 
 function wordMatch(text: string, word: string): boolean {
@@ -425,9 +358,16 @@ const FILE_TYPE_QUANT: Record<number, string> = {
   30: 'IQ4_XS',
   31: 'IQ1_M',
   32: 'BF16',
+  33: 'Q4_0_4_4',
+  34: 'Q4_0_4_8',
+  35: 'Q4_0_8_8',
   36: 'TQ1_0',
   37: 'TQ2_0',
   38: 'MXFP4_MOE',
+  39: 'NVFP4',
+  40: 'Q1_0',
+  41: 'Q2_0',
+  42: 'F8_E4M3',
 };
 
 const QUANT_IN_NAME = /(?<![A-Z0-9])(I?P?T?Q\d+(?:_[A-Z0-9]+)*|BF16|F16|F32|FP16|FP32)(?![A-Z0-9])/gi;

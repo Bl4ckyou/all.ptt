@@ -124,6 +124,60 @@ describe('readGgufSignature', () => {
     expect(signature.hasTokenizer).toBe(true);
     expect(signature.hasMtp).toBe(true);
   });
+
+  it('reads metadata located beyond the old 128 KiB window', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ptt-gguf-'));
+    temporaryDirectories.push(directory);
+
+    const entries = [
+      entry('general.blob', 8, ggufString('x'.repeat(200 * 1024))),
+      entry('general.architecture', 8, ggufString('llama')),
+      entry('general.name', 8, ggufString('Big Model')),
+      entry('tokenizer.ggml.tokens', 9, Buffer.concat([u32(8), u64(0)])),
+    ];
+    const file = join(directory, 'big.gguf');
+    await writeFile(
+      file,
+      Buffer.concat([
+        Buffer.from('GGUF', 'ascii'),
+        u32(3),
+        u64(0),
+        u64(entries.length),
+        ...entries,
+      ]),
+    );
+
+    const signature = await readGgufSignature(file);
+    expect(signature.architecture).toBe('llama');
+    expect(signature.name).toBe('Big Model');
+    expect(signature.hasTokenizer).toBe(true);
+  });
+
+  it('does not flag assistant metadata as mtp', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ptt-gguf-'));
+    temporaryDirectories.push(directory);
+
+    const entries = [
+      entry('general.architecture', 8, ggufString('gemma4-assistant')),
+      entry('general.name', 8, ggufString('E2B Assistant')),
+      entry('tokenizer.ggml.tokens', 9, Buffer.concat([u32(8), u64(0)])),
+    ];
+    const file = join(directory, 'assistant.gguf');
+    await writeFile(
+      file,
+      Buffer.concat([
+        Buffer.from('GGUF', 'ascii'),
+        u32(3),
+        u64(0),
+        u64(entries.length),
+        ...entries,
+      ]),
+    );
+
+    const signature = await readGgufSignature(file);
+    expect(signature.hasMtp).toBe(false);
+    expect(classifyGguf('assistant.gguf', signature).category).toBe('assistant');
+  });
 });
 
 describe('quantizationOf', () => {
