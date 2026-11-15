@@ -51,6 +51,20 @@ describe('selectAsset', () => {
     expect(result?.asset.name).toBe('ik_llama-main-x-bin-ubuntu-x64-avx512.zip');
   });
 
+  it('pairs the windows cuda runtime with the main asset', () => {
+    const result = selectAsset(
+      [
+        asset('cudart-llama-bin-win-cuda-12.4-x64.zip'),
+        asset('llama-b1-bin-win-cuda-12.4-x64.zip'),
+      ],
+      manifest.backends['llama-cpp'].selection,
+      ['win-x64-cuda'],
+      { ...context, os: 'win' },
+    );
+    expect(result?.asset.name).toBe('llama-b1-bin-win-cuda-12.4-x64.zip');
+    expect(result?.runtime?.name).toBe('cudart-llama-bin-win-cuda-12.4-x64.zip');
+  });
+
   it('ignores cudart-only assets', () => {
     const result = selectAsset(
       [

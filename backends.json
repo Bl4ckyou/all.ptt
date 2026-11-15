@@ -57,6 +57,18 @@
     "spec-ngram-size-n": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "includes": "ngram" }, "descriptionKey": "setting-spec-ngram-size-n-desc" },
     "spec-ngram-size-m": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "includes": "ngram" }, "descriptionKey": "setting-spec-ngram-size-m-desc" },
     "spec-ngram-min-hits": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "includes": "ngram" }, "descriptionKey": "setting-spec-ngram-min-hits-desc" },
+    "spec-ngram-simple-size-n": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "values": ["ngram-simple"] }, "descriptionKey": "setting-spec-ngram-size-n-desc" },
+    "spec-ngram-simple-size-m": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "values": ["ngram-simple"] }, "descriptionKey": "setting-spec-ngram-size-m-desc" },
+    "spec-ngram-simple-min-hits": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "values": ["ngram-simple"] }, "descriptionKey": "setting-spec-ngram-min-hits-desc" },
+    "spec-ngram-map-k-size-n": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "values": ["ngram-map-k"] }, "descriptionKey": "setting-spec-ngram-size-n-desc" },
+    "spec-ngram-map-k-size-m": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "values": ["ngram-map-k"] }, "descriptionKey": "setting-spec-ngram-size-m-desc" },
+    "spec-ngram-map-k-min-hits": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "values": ["ngram-map-k"] }, "descriptionKey": "setting-spec-ngram-min-hits-desc" },
+    "spec-ngram-map-k4v-size-n": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "values": ["ngram-map-k4v"] }, "descriptionKey": "setting-spec-ngram-size-n-desc" },
+    "spec-ngram-map-k4v-size-m": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "values": ["ngram-map-k4v"] }, "descriptionKey": "setting-spec-ngram-size-m-desc" },
+    "spec-ngram-map-k4v-min-hits": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "values": ["ngram-map-k4v"] }, "descriptionKey": "setting-spec-ngram-min-hits-desc" },
+    "spec-ngram-mod-n-min": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "values": ["ngram-mod"] }, "descriptionKey": "setting-spec-n-min-desc" },
+    "spec-ngram-mod-n-max": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "values": ["ngram-mod"] }, "descriptionKey": "setting-spec-n-max-desc" },
+    "spec-ngram-mod-n-match": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "values": ["ngram-mod"] }, "descriptionKey": "setting-spec-ngram-size-n-desc" },
     "spec-suffix-min-match-len": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "values": ["suffix"] }, "descriptionKey": "setting-spec-suffix-min-match-len-desc" },
     "spec-suffix-max-depth": { "type": "number", "category": "speculative", "min": 1, "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "values": ["suffix"] }, "descriptionKey": "setting-spec-suffix-max-depth-desc" },
     "spec-suffix-corpus": { "type": "string", "category": "speculative", "advanced": true, "dependsOn": { "setting": "spec-type-secondary", "values": ["suffix"] }, "descriptionKey": "setting-spec-suffix-corpus-desc" }
@@ -135,12 +147,20 @@
           "stage": true,
           "choices": ["none", "ngram-simple", "ngram-map-k", "ngram-map-k4v", "ngram-mod", "ngram-cache"]
         },
-        "spec-n-max": "--spec-draft-n-max",
         "spec-n-min": "--spec-draft-n-min",
         "spec-p-min": "--spec-draft-p-min",
-        "spec-ngram-size-n": "--spec-ngram-size-n",
-        "spec-ngram-size-m": "--spec-ngram-size-m",
-        "spec-ngram-min-hits": "--spec-ngram-min-hits"
+        "spec-ngram-simple-size-n": "--spec-ngram-simple-size-n",
+        "spec-ngram-simple-size-m": "--spec-ngram-simple-size-m",
+        "spec-ngram-simple-min-hits": "--spec-ngram-simple-min-hits",
+        "spec-ngram-map-k-size-n": "--spec-ngram-map-k-size-n",
+        "spec-ngram-map-k-size-m": "--spec-ngram-map-k-size-m",
+        "spec-ngram-map-k-min-hits": "--spec-ngram-map-k-min-hits",
+        "spec-ngram-map-k4v-size-n": "--spec-ngram-map-k4v-size-n",
+        "spec-ngram-map-k4v-size-m": "--spec-ngram-map-k4v-size-m",
+        "spec-ngram-map-k4v-min-hits": "--spec-ngram-map-k4v-min-hits",
+        "spec-ngram-mod-n-min": "--spec-ngram-mod-n-min",
+        "spec-ngram-mod-n-max": "--spec-ngram-mod-n-max",
+        "spec-ngram-mod-n-match": "--spec-ngram-mod-n-match"
       },
       "selection": [
         {
@@ -159,7 +179,8 @@
           "targets": ["win-x64-cuda"],
           "include": "bin-win-cuda-.*-x64\\.zip$",
           "exclude": ["^cudart-"],
-          "prefer": ["cuda-12\\..*-x64\\.zip$", "cuda-.*-x64\\.zip$"]
+          "prefer": ["cuda-12\\..*-x64\\.zip$", "cuda-.*-x64\\.zip$"],
+          "runtime": "^cudart-.*win-cuda-.*-x64\\.zip$"
         },
         { "targets": ["win-x64-vulkan"], "include": "bin-win-vulkan-x64\\.zip$" },
         { "targets": ["win-x64-rocm"], "include": "bin-win-rocm-.*-x64\\.zip$" },

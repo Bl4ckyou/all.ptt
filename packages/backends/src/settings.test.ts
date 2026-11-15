@@ -169,8 +169,18 @@ describe('buildSettingArgs', () => {
       buildSettingArgs(manifest.backends['llama-cpp'], manifest.settings, {
         'spec-type': 'draft-mtp',
         'spec-type-secondary': 'ngram-map-k',
+        'spec-ngram-map-k-size-n': 8,
+      }),
+    ).toEqual(['--spec-ngram-map-k-size-n', '8', '--spec-type', 'draft-mtp,ngram-map-k']);
+  });
+
+  it('does not emit removed generic llama ngram flags', () => {
+    expect(
+      buildSettingArgs(manifest.backends['llama-cpp'], manifest.settings, {
+        'spec-type': 'draft-mtp',
+        'spec-type-secondary': 'ngram-map-k',
         'spec-ngram-size-n': 8,
       }),
-    ).toEqual(['--spec-ngram-size-n', '8', '--spec-type', 'draft-mtp,ngram-map-k']);
+    ).toEqual(['--spec-type', 'draft-mtp,ngram-map-k']);
   });
 });

@@ -238,11 +238,14 @@ export async function syncBackend(options: SyncOptions): Promise<SyncResult> {
     const targetKey = selected.target;
     const previous = state.variants[targetKey];
 
+    const runtimeMatches = !selected.runtime || previous?.runtime === selected.runtime.name;
+
     if (
       !options.force &&
       previous &&
       !previous.legacy &&
       previous.tag === tag &&
+      runtimeMatches &&
       existsSync(previous.binary)
     ) {
       desired.set(targetKey, previous);
@@ -256,6 +259,7 @@ export async function syncBackend(options: SyncOptions): Promise<SyncResult> {
       tag,
       asset: selected.asset.name,
       size: selected.asset.size,
+      runtime: selected.runtime?.name,
       installedAt: new Date().toISOString(),
     };
 
@@ -267,40 +271,46 @@ export async function syncBackend(options: SyncOptions): Promise<SyncResult> {
 
     const directory = backendDir(root, id);
     const versionDir = join(directory, targetKey, tag);
-    const archivePath = join(directory, '.download', selected.asset.name);
+    const assets = selected.runtime ? [selected.asset, selected.runtime] : [selected.asset];
+    const archivePaths: string[] = [];
 
     await rm(versionDir, { recursive: true, force: true });
 
     try {
-      options.onProgress?.({
-        phase: 'downloading',
-        asset: selected.asset.name,
-        downloaded: 0,
-        total: selected.asset.size,
-      });
+      for (const asset of assets) {
+        const archivePath = join(directory, '.download', asset.name);
+        archivePaths.push(archivePath);
 
-      await download(selected.asset.url, archivePath, {
-        signal: options.signal,
-        control: options.control,
-        onProgress: (downloaded, total) =>
-          options.onProgress?.({
-            phase: 'downloading',
-            asset: selected.asset.name,
-            downloaded,
-            total: total || selected.asset.size,
-          }),
-      });
+        options.onProgress?.({
+          phase: 'downloading',
+          asset: asset.name,
+          downloaded: 0,
+          total: asset.size,
+        });
 
-      options.onProgress?.({
-        phase: 'extracting',
-        asset: selected.asset.name,
-        downloaded: selected.asset.size,
-        total: selected.asset.size,
-      });
+        await download(asset.url, archivePath, {
+          signal: options.signal,
+          control: options.control,
+          onProgress: (downloaded, total) =>
+            options.onProgress?.({
+              phase: 'downloading',
+              asset: asset.name,
+              downloaded,
+              total: total || asset.size,
+            }),
+        });
 
-      await extractArchive(archivePath, versionDir);
+        options.onProgress?.({
+          phase: 'extracting',
+          asset: asset.name,
+          downloaded: asset.size,
+          total: asset.size,
+        });
+
+        await extractArchive(archivePath, versionDir);
+      }
     } catch (error) {
-      await rm(archivePath, { force: true }).catch(() => undefined);
+      await Promise.all(archivePaths.map((path) => rm(path, { force: true }).catch(() => undefined)));
       await rm(versionDir, { recursive: true, force: true }).catch(() => undefined);
       throw error;
     }
@@ -315,6 +325,7 @@ export async function syncBackend(options: SyncOptions): Promise<SyncResult> {
       tag,
       asset: selected.asset.name,
       size: selected.asset.size,
+      runtime: selected.runtime?.name,
       installedAt: new Date().toISOString(),
       binary,
     };

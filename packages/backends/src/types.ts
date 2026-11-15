@@ -17,6 +17,7 @@ export interface SelectionRule {
   include: string;
   exclude?: string[];
   prefer?: string[];
+  runtime?: string;
 }
 
 export type SettingType = 'number' | 'boolean' | 'string' | 'enum' | 'path';
@@ -110,6 +111,7 @@ export interface InstalledVariant {
   size: number;
   installedAt: string;
   binary: string;
+  runtime?: string;
   legacy?: boolean;
 }
 
@@ -125,6 +127,7 @@ export interface SyncRecord {
   asset: string;
   size?: number;
   binary?: string | null;
+  runtime?: string;
   installedAt?: string;
   skipped?: boolean;
   dryRun?: boolean;

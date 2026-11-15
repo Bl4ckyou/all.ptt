@@ -18,6 +18,7 @@ function rankOf(name: string, preferences: RegExp[]): number {
 export interface AssetSelection {
   target: string;
   asset: ReleaseAsset;
+  runtime?: ReleaseAsset;
 }
 
 // Pick the best asset for the first candidate target that has a match.
@@ -44,7 +45,13 @@ export function selectAsset(
         .sort((a, b) => a.rank - b.rank || a.index - b.index)
         .map((entry) => entry.asset);
 
-      return { target, asset: ordered[0] };
+      const runtime = rule.runtime
+        ? assets.find(
+            (asset) => asset !== ordered[0] && toRegExp(rule.runtime!, context).test(asset.name),
+          )
+        : undefined;
+
+      return { target, asset: ordered[0], runtime };
     }
   }
   return null;
