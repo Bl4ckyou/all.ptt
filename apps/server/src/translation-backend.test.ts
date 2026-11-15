@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { findTranslationModel } from './translation-backend.js';
+import { findTranslationCandidates, findTranslationModel } from './translation-backend.js';
 
 const temporaryDirectories: string[] = [];
 const originalHub = process.env.HF_HUB_CACHE;
@@ -47,6 +47,17 @@ describe('findTranslationModel', () => {
     await writeFile(preferred, Buffer.alloc(2048));
 
     await expect(findTranslationModel([models])).resolves.toBe(preferred);
+  });
+
+  it('lists other translation models already in the cache', async () => {
+    const emptyHub = await workspace();
+    process.env.HF_HUB_CACHE = emptyHub;
+    const models = await workspace();
+    const file = join(models, 'translategemma-4b-it-Q4_K_M.gguf');
+    await writeFile(file, Buffer.alloc(2048));
+
+    const candidates = await findTranslationCandidates([models]);
+    expect(candidates.map((candidate) => candidate.path)).toContain(file);
   });
 
   it('returns null when nothing is found', async () => {

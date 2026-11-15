@@ -709,8 +709,11 @@ export function createManage(actions: Actions): Manage {
             },
           }, [icon('play'), t('manage-translate-enable')]);
 
+          const candidateList = el('div', {});
           const setup = el('div', {}, [
             el('p', { class: 'manage-line muted', text: t('manage-translate-desc') }),
+            candidateList,
+            el('p', { class: 'manage-line muted', text: t('manage-translate-or-download') }),
             el('div', { class: 'manage-actions' }, [downloadButton]),
             el('div', { class: 'manage-actions' }, [pathInput, enableButton]),
           ]);
@@ -734,6 +737,32 @@ export function createManage(actions: Actions): Manage {
             }
 
             const ready = status.status === 'ready';
+            candidateList.replaceChildren();
+            if (!ready && status.candidates && status.candidates.length > 0) {
+              candidateList.append(
+                el('p', { class: 'manage-line muted', text: t('manage-translate-found') }),
+              );
+              for (const candidate of status.candidates) {
+                candidateList.append(
+                  el('div', { class: 'manage-actions' }, [
+                    el('span', {
+                      class: 'manage-line',
+                      text: `${candidate.name}${candidate.quant ? ` (${candidate.quant})` : ''}`,
+                    }),
+                    el('button', {
+                      class: 'button',
+                      on: {
+                        click: () => {
+                          void actions
+                            .enableTranslation(candidate.path)
+                            .then(renderTranslationStatus);
+                        },
+                      },
+                    }, [icon('play'), t('manage-translate-enable')]),
+                  ]),
+                );
+              }
+            }
             setup.hidden = ready;
             translateButton.disabled = !ready;
             disableButton.hidden = !ready;

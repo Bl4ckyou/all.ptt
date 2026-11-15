@@ -191,4 +191,13 @@ export interface TranslationStatus {
     targetLang: boolean;
   };
   languages?: string[];
+  candidates?: TranslationCandidate[];
+}
+
+export interface TranslationCandidate {
+  path: string;
+  name: string;
+  quant: string | null;
+  contextLength: number | null;
+  targetLang: boolean;
 }

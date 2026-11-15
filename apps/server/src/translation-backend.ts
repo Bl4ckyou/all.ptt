@@ -28,6 +28,14 @@ const PLAMO_LANGUAGES = [
   'sl', 'sr', 'sw', 'ta', 'te', 'th', 'tl', 'ur', 'uz', 'vi',
 ];
 
+export interface TranslationCandidate {
+  path: string;
+  name: string;
+  quant: string | null;
+  contextLength: number | null;
+  targetLang: boolean;
+}
+
 export interface TranslationStatus {
   status: 'idle' | 'downloading' | 'starting' | 'ready' | 'error';
   progress: number;
@@ -42,6 +50,7 @@ export interface TranslationStatus {
     targetLang: boolean;
   };
   languages?: string[];
+  candidates?: TranslationCandidate[];
 }
 
 function targetLang(locale: string): string {
@@ -56,7 +65,7 @@ function publicModelPath(root: string): string {
   return join(root, '.ptt', 'translation', 'plamo-3-translate-0.8b-Q4_K_M.gguf');
 }
 
-const MODEL_PATTERN = /plamo.*translate.*\.gguf$/i;
+const MODEL_PATTERN = /(translat|plamo).*\.gguf$/i;
 
 async function findInDirectory(
   base: string,
@@ -80,7 +89,10 @@ async function findInDirectory(
     if (budget.left <= 0) break;
     const path = join(base, entry.name);
     if (entry.isDirectory()) directories.push(path);
-    else if ((entry.isFile() || entry.isSymbolicLink()) && MODEL_PATTERN.test(entry.name)) {
+    else if (
+      (entry.isFile() || entry.isSymbolicLink()) &&
+      MODEL_PATTERN.test(path)
+    ) {
       files.push(path);
     }
   }
@@ -99,6 +111,67 @@ async function findInDirectory(
   return null;
 }
 
+async function collectModels(base: string, depth: number, budget: { left: number }, found: string[]): Promise<void> {
+  if (depth < 0 || budget.left <= 0) return;
+
+  let entries;
+  try {
+    entries = await readdir(base, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  const directories: string[] = [];
+  for (const entry of entries) {
+    budget.left -= 1;
+    if (budget.left <= 0) break;
+    const path = join(base, entry.name);
+    if (entry.isDirectory()) directories.push(path);
+    else if ((entry.isFile() || entry.isSymbolicLink()) && MODEL_PATTERN.test(path)) {
+      found.push(path);
+    }
+  }
+
+  for (const directory of directories) {
+    if (found.length >= 12) return;
+    await collectModels(directory, depth - 1, budget, found);
+  }
+}
+
+export async function findTranslationCandidates(directories: string[]): Promise<TranslationCandidate[]> {
+  const paths: string[] = [];
+  for (const base of new Set<string>([huggingFaceHubDir(), ...directories])) {
+    await collectModels(base, 6, { left: 6000 }, paths);
+  }
+
+  const sorted = [...new Set(paths)].sort((a, b) => {
+    const score = (path: string): number => {
+      const value = path.toLowerCase();
+      let rank = 0;
+      if (value.includes('plamo')) rank -= 4;
+      if (value.includes('q4_k_m')) rank -= 2;
+      if (value.includes('translategemma')) rank -= 1;
+      return rank;
+    };
+    return score(a) - score(b);
+  });
+
+  const candidates: TranslationCandidate[] = [];
+  for (const path of sorted.slice(0, 8)) {
+    const info = await stat(path).catch(() => null);
+    if (!info?.size || info.size < 1024) continue;
+    const signature = await readGgufSignature(path).catch(() => null);
+    candidates.push({
+      path,
+      name: signature?.name ?? signature?.basename ?? path.split('/').pop() ?? path,
+      quant: signature ? quantizationOf(path, signature) : null,
+      contextLength: signature?.contextLength ?? null,
+      targetLang: /target_lang/.test(signature?.chatTemplate ?? ''),
+    });
+  }
+  return candidates;
+}
+
 function huggingFaceHubDir(): string {
   return (
     process.env.HF_HUB_CACHE ??
@@ -109,6 +182,9 @@ function huggingFaceHubDir(): string {
 }
 
 export async function findTranslationModel(directories: string[]): Promise<string | null> {
+  const candidates = await findTranslationCandidates(directories);
+  if (candidates.length > 0) return candidates[0].path;
+
   const bases = new Set<string>([huggingFaceHubDir(), ...directories]);
   for (const base of bases) {
     const found = await findInDirectory(base, 6, { left: 4000 });
@@ -228,6 +304,7 @@ async function downloadToHuggingFaceCache(
 export class TranslationManager {
   private state: TranslationStatus = { status: 'idle', progress: 0, total: 0 };
   private running: RunningBackend | null = null;
+  private candidates: TranslationCandidate[] = [];
 
   constructor(
     private readonly root: string,
@@ -239,10 +316,19 @@ export class TranslationManager {
     if (translator.inner) {
       this.state = { status: 'ready', progress: 0, total: 0, providerId: PROVIDER_ID };
     }
+    void this.refreshCandidates();
   }
 
   status(): TranslationStatus {
-    return { ...this.state };
+    return { ...this.state, candidates: this.candidates };
+  }
+
+  private async refreshCandidates(): Promise<void> {
+    try {
+      this.candidates = await findTranslationCandidates(this.modelDirs);
+    } catch {
+      this.candidates = [];
+    }
   }
 
   async disable(): Promise<void> {
@@ -253,6 +339,7 @@ export class TranslationManager {
     this.registry.remove(PROVIDER_ID);
     this.translator.inner = null;
     this.state = { status: 'idle', progress: 0, total: 0 };
+    await this.refreshCandidates();
   }
 
   startDownload(): TranslationStatus {
