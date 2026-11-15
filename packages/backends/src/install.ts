@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { createWriteStream } from 'node:fs';
-import { mkdir, readdir, rm } from 'node:fs/promises';
+import { mkdir, readdir, rm, stat } from 'node:fs/promises';
 import { once } from 'node:events';
 import { dirname, join } from 'node:path';
 import { extractArchive } from './archive.js';
@@ -81,6 +81,15 @@ async function download(
       stream.end((error?: Error | null) => (error ? reject(error) : resolve()));
     });
     reader.releaseLock();
+  }
+}
+
+export async function cachedArchive(path: string, size: number): Promise<boolean> {
+  if (size <= 0) return false;
+  try {
+    return (await stat(path)).size === size;
+  } catch {
+    return false;
   }
 }
 
@@ -168,6 +177,7 @@ async function prune(directory: string, desired: Map<string, { tag: string }>): 
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
 
+    if (entry.name === '.download') continue;
     if (entry.name.startsWith('.')) {
       await rm(join(directory, entry.name), { recursive: true, force: true });
       continue;
@@ -184,6 +194,19 @@ async function prune(directory: string, desired: Map<string, { tag: string }>): 
       if (versionDir.isDirectory() && versionDir.name !== record.tag) {
         await rm(join(directory, entry.name, versionDir.name), { recursive: true, force: true });
       }
+    }
+  }
+}
+
+// Keep only the archives that are still referenced by the installed state.
+async function pruneDownloads(directory: string, keep: Set<string>): Promise<void> {
+  const downloadDir = join(directory, '.download');
+  if (!existsSync(downloadDir)) return;
+
+  const entries = await readdir(downloadDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!keep.has(entry.name)) {
+      await rm(join(downloadDir, entry.name), { recursive: true, force: true });
     }
   }
 }
@@ -272,33 +295,36 @@ export async function syncBackend(options: SyncOptions): Promise<SyncResult> {
     const directory = backendDir(root, id);
     const versionDir = join(directory, targetKey, tag);
     const assets = selected.runtime ? [selected.asset, selected.runtime] : [selected.asset];
-    const archivePaths: string[] = [];
+    const downloadedPaths: string[] = [];
 
     await rm(versionDir, { recursive: true, force: true });
 
     try {
       for (const asset of assets) {
         const archivePath = join(directory, '.download', asset.name);
-        archivePaths.push(archivePath);
+        const cached = await cachedArchive(archivePath, asset.size);
 
         options.onProgress?.({
           phase: 'downloading',
           asset: asset.name,
-          downloaded: 0,
+          downloaded: cached ? asset.size : 0,
           total: asset.size,
         });
 
-        await download(asset.url, archivePath, {
-          signal: options.signal,
-          control: options.control,
-          onProgress: (downloaded, total) =>
-            options.onProgress?.({
-              phase: 'downloading',
-              asset: asset.name,
-              downloaded,
-              total: total || asset.size,
-            }),
-        });
+        if (!cached) {
+          downloadedPaths.push(archivePath);
+          await download(asset.url, archivePath, {
+            signal: options.signal,
+            control: options.control,
+            onProgress: (downloaded, total) =>
+              options.onProgress?.({
+                phase: 'downloading',
+                asset: asset.name,
+                downloaded,
+                total: total || asset.size,
+              }),
+          });
+        }
 
         options.onProgress?.({
           phase: 'extracting',
@@ -310,7 +336,9 @@ export async function syncBackend(options: SyncOptions): Promise<SyncResult> {
         await extractArchive(archivePath, versionDir);
       }
     } catch (error) {
-      await Promise.all(archivePaths.map((path) => rm(path, { force: true }).catch(() => undefined)));
+      await Promise.all(
+        downloadedPaths.map((path) => rm(path, { force: true }).catch(() => undefined)),
+      );
       await rm(versionDir, { recursive: true, force: true }).catch(() => undefined);
       throw error;
     }
@@ -344,7 +372,15 @@ export async function syncBackend(options: SyncOptions): Promise<SyncResult> {
   const directory = backendDir(root, id);
   await mkdir(directory, { recursive: true });
   await writeJsonFile(installedStatePath(root, id), state);
+
+  const keep = new Set<string>();
+  for (const variant of Object.values(state.variants)) {
+    keep.add(variant.asset);
+    if (variant.runtime) keep.add(variant.runtime);
+  }
+
   await prune(directory, desired);
+  await pruneDownloads(directory, keep);
 
   return { id, records };
 }
