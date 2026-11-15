@@ -35,11 +35,15 @@ function cacheKey(locale: string): string {
   return locale.toLowerCase().replace(/[^a-z0-9-]/g, '_');
 }
 
-function cleanSource(text: string): string {
-  return text
+function splitEnv(text: string): { clean: string; env: string } {
+  const env = [...text.matchAll(/\s*\((env:[^)]*)\)/gi)]
+    .map((match) => `(${match[1]})`)
+    .join(' ');
+  const clean = text
     .replace(/\s*\(env:[^)]*\)/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
+  return { clean, env };
 }
 
 function cachePath(root: string, locale: string): string {
@@ -142,8 +146,9 @@ export class TranslationService {
   private async run(texts: string[], locale: string): Promise<string[]> {
     const file = cachePath(this.root, locale);
     const stored = await readJsonFile<{ version?: number; entries?: Record<string, string> }>(file);
-    const cache = stored?.version === 3 ? (stored.entries ?? {}) : {};
-    const sources = texts.map(cleanSource);
+    const cache = stored?.version === 4 ? (stored.entries ?? {}) : {};
+    const split = texts.map(splitEnv);
+    const sources = split.map((entry) => entry.clean);
     const keys = sources.map(hash);
 
     const pending = new Map<string, { masked: string; tokens: string[] }>();
@@ -167,13 +172,18 @@ export class TranslationService {
           cache[key] = restored;
           if (restored !== sources[keys.indexOf(key)]) changed = true;
         });
-        if (changed) await writeJsonFile(file, { version: 3, entries: cache });
+        if (changed) await writeJsonFile(file, { version: 4, entries: cache });
       } catch {
         return texts;
       }
     }
 
-    return texts.map((text, index) => cache[keys[index]] ?? text);
+    return texts.map((text, index) => {
+      const translated = cache[keys[index]];
+      if (!translated) return text;
+      const env = split[index].env;
+      return env ? `${translated} ${env}` : translated;
+    });
   }
 
   private async withLock<T>(key: string, run: () => Promise<T>): Promise<T> {

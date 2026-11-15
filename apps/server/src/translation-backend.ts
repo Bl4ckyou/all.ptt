@@ -22,6 +22,70 @@ const PLAMO_REPO = 'pfnet/plamo-3-translate-0.8b-GGUF';
 const PLAMO_FILE = 'plamo-3-translate-0.8b-Q4_K_M.gguf';
 const PLAMO_URL = `https://huggingface.co/${PLAMO_REPO}/resolve/main/${PLAMO_FILE}`;
 
+const GLOSSARY: Record<string, [string, string][]> = {
+  fr: [
+    ['thread', 'thread'],
+    ['polling', 'polling'],
+    ['draft', 'brouillon'],
+    ['prompt', 'prompt'],
+    ['offload', 'décharger'],
+    ['cache', 'cache'],
+    ['batch', 'lot'],
+    ['token', 'jeton'],
+    ['layer', 'couche'],
+    ['weight', 'poids'],
+    ['sampling', 'échantillonnage'],
+    ['context', 'contexte'],
+  ],
+  es: [
+    ['thread', 'hilo'],
+    ['polling', 'sondeo'],
+    ['draft', 'borrador'],
+    ['prompt', 'prompt'],
+    ['offload', 'descargar'],
+    ['cache', 'caché'],
+    ['batch', 'lote'],
+    ['token', 'token'],
+    ['layer', 'capa'],
+    ['weight', 'peso'],
+    ['sampling', 'muestreo'],
+    ['context', 'contexto'],
+  ],
+  de: [
+    ['thread', 'Thread'],
+    ['polling', 'Polling'],
+    ['draft', 'Entwurf'],
+    ['prompt', 'Prompt'],
+    ['offload', 'auslagern'],
+    ['cache', 'Cache'],
+    ['batch', 'Batch'],
+    ['token', 'Token'],
+    ['layer', 'Ebene'],
+    ['weight', 'Gewicht'],
+    ['sampling', 'Sampling'],
+    ['context', 'Kontext'],
+  ],
+  ja: [
+    ['thread', 'スレッド'],
+    ['polling', 'ポーリング'],
+    ['draft', 'ドラフト'],
+    ['prompt', 'プロンプト'],
+    ['offload', 'オフロード'],
+    ['cache', 'キャッシュ'],
+    ['batch', 'バッチ'],
+    ['token', 'トークン'],
+    ['layer', 'レイヤー'],
+    ['weight', '重み'],
+    ['sampling', 'サンプリング'],
+    ['context', 'コンテキスト'],
+  ],
+};
+
+function glossaryFor(locale: string): { source: string; target: string }[] | undefined {
+  const entries = GLOSSARY[locale.split(/[-_]/)[0]];
+  return entries?.map(([source, target]) => ({ source, target }));
+}
+
 const PLAMO_LANGUAGES = [
   'ja', 'en', 'zh-hans', 'zh-hant', 'ko', 'ar', 'az', 'be', 'bg', 'bn', 'ca', 'ceb', 'de',
   'es', 'et', 'eu', 'fa', 'fr', 'gu', 'he', 'hi', 'hr', 'hu', 'hy', 'id', 'it', 'jv', 'ka',
@@ -141,6 +205,7 @@ class NativeTranslator implements Translator {
                 source_lang: 'en',
                 target_lang: targetLang(locale),
                 context: 'Technical command-line settings for a local LLM inference server.',
+                ...(glossaryFor(locale) ? { glossary: glossaryFor(locale) } : {}),
               },
             }
           : {}),
