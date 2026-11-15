@@ -23,6 +23,7 @@ export interface LocalModel {
   contextLength?: number | null;
   quantization?: string | null;
   hasMtp?: boolean;
+  chatTemplate?: string | null;
 }
 
 export interface AuxiliaryFile extends LocalModel {
@@ -52,14 +53,21 @@ export function isUsableModelFile(fileName: string): boolean {
   return ggufKind(fileName) === 'model';
 }
 
+export function huggingFaceHubDir(): string {
+  const env = process.env;
+  if (env.HF_HUB_CACHE) return env.HF_HUB_CACHE;
+  if (env.HUGGINGFACE_HUB_CACHE) return env.HUGGINGFACE_HUB_CACHE;
+  if (env.HF_HOME) return join(env.HF_HOME, 'hub');
+  return join(homedir(), '.cache', 'huggingface', 'hub');
+}
+
 function huggingFaceCacheDirs(): string[] {
   const env = process.env;
-  const dirs: string[] = [];
+  const dirs: string[] = [huggingFaceHubDir()];
 
   if (env.HUGGINGFACE_HUB_CACHE) dirs.push(env.HUGGINGFACE_HUB_CACHE);
   if (env.HF_HUB_CACHE) dirs.push(env.HF_HUB_CACHE);
   if (env.HF_HOME) dirs.push(join(env.HF_HOME, 'hub'));
-  dirs.push(join(homedir(), '.cache', 'huggingface', 'hub'));
 
   return [...new Set(dirs)];
 }
@@ -127,6 +135,7 @@ async function collect(
         contextLength: signature?.contextLength ?? null,
         quantization: quantizationOf(entry.name, signature),
         hasMtp: signature?.hasMtp ?? false,
+        chatTemplate: signature?.chatTemplate ?? null,
         ...(kind === 'draft' ? { category: classification.category } : {}),
       });
     } catch {

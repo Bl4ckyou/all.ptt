@@ -13,6 +13,43 @@ async function workspace(): Promise<string> {
   return directory;
 }
 
+function u32(value: number): Buffer {
+  const buffer = Buffer.alloc(4);
+  buffer.writeUInt32LE(value);
+  return buffer;
+}
+
+function u64(value: number): Buffer {
+  const buffer = Buffer.alloc(8);
+  buffer.writeBigUInt64LE(BigInt(value));
+  return buffer;
+}
+
+function text(value: string): Buffer {
+  const bytes = Buffer.from(value, 'utf8');
+  return Buffer.concat([u64(bytes.length), bytes]);
+}
+
+function entry(key: string, type: number, value: Buffer): Buffer {
+  return Buffer.concat([text(key), u32(type), value]);
+}
+
+function gguf(name: string): Buffer {
+  const entries = [
+    entry('general.architecture', 8, text('plamo')),
+    entry('general.name', 8, text(name)),
+    entry('plamo.context_length', 4, u32(8192)),
+    entry('tokenizer.chat_template', 8, text('{% if target_lang %}x{% endif %}')),
+  ];
+  return Buffer.concat([
+    Buffer.from('GGUF', 'ascii'),
+    u32(3),
+    u64(0),
+    u64(entries.length),
+    ...entries,
+  ]);
+}
+
 afterEach(async () => {
   if (originalHub === undefined) delete process.env.HF_HUB_CACHE;
   else process.env.HF_HUB_CACHE = originalHub;
@@ -33,7 +70,7 @@ describe('findTranslationModel', () => {
     );
     await mkdir(snapshot, { recursive: true });
     const file = join(snapshot, 'plamo-3-translate-0.8b-Q4_K_M.gguf');
-    await writeFile(file, Buffer.alloc(2048));
+    await writeFile(file, gguf('PLaMo 3 Translate 0.8B'));
 
     await expect(findTranslationModel([])).resolves.toBe(file);
   });
@@ -42,9 +79,9 @@ describe('findTranslationModel', () => {
     const emptyHub = await workspace();
     process.env.HF_HUB_CACHE = emptyHub;
     const models = await workspace();
-    await writeFile(join(models, 'plamo-3-translate-0.8b-Q2_K.gguf'), Buffer.alloc(2048));
+    await writeFile(join(models, 'plamo-3-translate-0.8b-Q2_K.gguf'), gguf('PLaMo Q2'));
     const preferred = join(models, 'plamo-3-translate-0.8b-Q4_K_M.gguf');
-    await writeFile(preferred, Buffer.alloc(2048));
+    await writeFile(preferred, gguf('PLaMo Q4'));
 
     await expect(findTranslationModel([models])).resolves.toBe(preferred);
   });
@@ -54,10 +91,11 @@ describe('findTranslationModel', () => {
     process.env.HF_HUB_CACHE = emptyHub;
     const models = await workspace();
     const file = join(models, 'translategemma-4b-it-Q4_K_M.gguf');
-    await writeFile(file, Buffer.alloc(2048));
+    await writeFile(file, gguf('TranslateGemma 4B'));
 
     const candidates = await findTranslationCandidates([models]);
     expect(candidates.map((candidate) => candidate.path)).toContain(file);
+    expect(candidates.find((candidate) => candidate.path === file)?.targetLang).toBe(true);
   });
 
   it('returns null when nothing is found', async () => {

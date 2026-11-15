@@ -1,13 +1,14 @@
 import { createWriteStream } from 'node:fs';
-import { copyFile, mkdir, readdir, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
+import { copyFile, mkdir, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import {
   BackendLauncher,
+  huggingFaceHubDir,
   quantizationOf,
   readGgufSignature,
   readInstalledStates,
   resolveInstalledBinary,
+  scanLocalFiles,
   type RunningBackend,
 } from '@ptt/backends';
 import type { ChatMessage } from '@ptt/core';
@@ -65,132 +66,35 @@ function publicModelPath(root: string): string {
   return join(root, '.ptt', 'translation', 'plamo-3-translate-0.8b-Q4_K_M.gguf');
 }
 
-const MODEL_PATTERN = /(translat|plamo).*\.gguf$/i;
+export async function findTranslationCandidates(
+  directories: string[],
+): Promise<TranslationCandidate[]> {
+  const files = await scanLocalFiles(directories);
+  const all = [...files.models, ...files.drafts, ...files.auxiliary];
+  const matched = all.filter((file) => /(translat|plamo)/i.test(file.path));
 
-async function findInDirectory(
-  base: string,
-  depth: number,
-  budget: { left: number },
-): Promise<string | null> {
-  if (depth < 0 || budget.left <= 0) return null;
+  const rank = (path: string): number => {
+    const value = path.toLowerCase();
+    let score = 0;
+    if (value.includes('plamo')) score -= 4;
+    if (value.includes('q4_k_m')) score -= 2;
+    if (value.includes('translategemma')) score -= 1;
+    return score;
+  };
+  matched.sort((a, b) => rank(a.path) - rank(b.path));
 
-  let entries;
-  try {
-    entries = await readdir(base, { withFileTypes: true });
-  } catch {
-    return null;
-  }
-
-  const files: string[] = [];
-  const directories: string[] = [];
-
-  for (const entry of entries) {
-    budget.left -= 1;
-    if (budget.left <= 0) break;
-    const path = join(base, entry.name);
-    if (entry.isDirectory()) directories.push(path);
-    else if (
-      (entry.isFile() || entry.isSymbolicLink()) &&
-      MODEL_PATTERN.test(path)
-    ) {
-      files.push(path);
-    }
-  }
-
-  const rank = (path: string): number => (path.toLowerCase().includes('q4_k_m') ? 0 : 1);
-  files.sort((a, b) => rank(a) - rank(b));
-  for (const file of files) {
-    const info = await stat(file).catch(() => null);
-    if (info?.size && info.size > 1024) return file;
-  }
-
-  for (const directory of directories) {
-    const found = await findInDirectory(directory, depth - 1, budget);
-    if (found) return found;
-  }
-  return null;
-}
-
-async function collectModels(base: string, depth: number, budget: { left: number }, found: string[]): Promise<void> {
-  if (depth < 0 || budget.left <= 0) return;
-
-  let entries;
-  try {
-    entries = await readdir(base, { withFileTypes: true });
-  } catch {
-    return;
-  }
-
-  const directories: string[] = [];
-  for (const entry of entries) {
-    budget.left -= 1;
-    if (budget.left <= 0) break;
-    const path = join(base, entry.name);
-    if (entry.isDirectory()) directories.push(path);
-    else if ((entry.isFile() || entry.isSymbolicLink()) && MODEL_PATTERN.test(path)) {
-      found.push(path);
-    }
-  }
-
-  for (const directory of directories) {
-    if (found.length >= 12) return;
-    await collectModels(directory, depth - 1, budget, found);
-  }
-}
-
-export async function findTranslationCandidates(directories: string[]): Promise<TranslationCandidate[]> {
-  const paths: string[] = [];
-  for (const base of new Set<string>([huggingFaceHubDir(), ...directories])) {
-    await collectModels(base, 6, { left: 6000 }, paths);
-  }
-
-  const sorted = [...new Set(paths)].sort((a, b) => {
-    const score = (path: string): number => {
-      const value = path.toLowerCase();
-      let rank = 0;
-      if (value.includes('plamo')) rank -= 4;
-      if (value.includes('q4_k_m')) rank -= 2;
-      if (value.includes('translategemma')) rank -= 1;
-      return rank;
-    };
-    return score(a) - score(b);
-  });
-
-  const candidates: TranslationCandidate[] = [];
-  for (const path of sorted.slice(0, 8)) {
-    const info = await stat(path).catch(() => null);
-    if (!info?.size || info.size < 1024) continue;
-    const signature = await readGgufSignature(path).catch(() => null);
-    candidates.push({
-      path,
-      name: signature?.name ?? signature?.basename ?? path.split('/').pop() ?? path,
-      quant: signature ? quantizationOf(path, signature) : null,
-      contextLength: signature?.contextLength ?? null,
-      targetLang: /target_lang/.test(signature?.chatTemplate ?? ''),
-    });
-  }
-  return candidates;
-}
-
-function huggingFaceHubDir(): string {
-  return (
-    process.env.HF_HUB_CACHE ??
-    (process.env.HF_HOME
-      ? join(process.env.HF_HOME, 'hub')
-      : join(homedir(), '.cache', 'huggingface', 'hub'))
-  );
+  return matched.slice(0, 8).map((file) => ({
+    path: file.path,
+    name: file.name,
+    quant: file.quantization ?? null,
+    contextLength: file.contextLength ?? null,
+    targetLang: /target_lang/.test(file.chatTemplate ?? ''),
+  }));
 }
 
 export async function findTranslationModel(directories: string[]): Promise<string | null> {
   const candidates = await findTranslationCandidates(directories);
-  if (candidates.length > 0) return candidates[0].path;
-
-  const bases = new Set<string>([huggingFaceHubDir(), ...directories]);
-  for (const base of bases) {
-    const found = await findInDirectory(base, 6, { left: 4000 });
-    if (found) return found;
-  }
-  return null;
+  return candidates[0]?.path ?? null;
 }
 
 async function mapLimit<T, R>(
