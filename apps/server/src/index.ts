@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
-import { BackendLauncher, loadManifest, scanLocalFiles } from '@ptt/backends';
+import { join } from 'node:path';
+import { BackendLauncher, loadManifest, scanLocalFiles, setModelScanIndex } from '@ptt/backends';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
 import { readCustomBackends } from './custom-backends.js';
@@ -36,6 +37,7 @@ const custom = await readCustomBackends(config.backendRoot);
 for (const [id, backend] of Object.entries(custom.backends)) {
   manifest.backends[id] = backend;
 }
+setModelScanIndex(join(config.backendRoot, '.ptt', 'model-scan.json'));
 void scanLocalFiles(config.modelDirs).catch(() => undefined);
 
 const context = {

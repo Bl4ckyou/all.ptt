@@ -76,18 +76,25 @@ function huggingFaceCacheDirs(): string[] {
 interface IndexedFile {
   mtimeMs: number;
   size: number;
-  file: ScannedFile;
+  file?: ScannedFile;
+  ignored?: boolean;
 }
 
-const SCAN_INDEX = join(homedir(), '.cache', 'ptt', 'model-scan.json');
+let scanIndexPath = join(process.cwd(), '.ptt', 'model-scan.json');
 let scanIndex: Map<string, IndexedFile> | null = null;
 let scanIndexPromise: Promise<Map<string, IndexedFile>> | null = null;
 let saveTimer: NodeJS.Timeout | null = null;
 
+export function setModelScanIndex(path: string): void {
+  scanIndexPath = path;
+  scanIndex = null;
+  scanIndexPromise = null;
+}
+
 async function loadScanIndex(): Promise<Map<string, IndexedFile>> {
   if (scanIndex) return scanIndex;
   if (!scanIndexPromise) {
-    scanIndexPromise = readJsonFile<Record<string, IndexedFile>>(SCAN_INDEX)
+    scanIndexPromise = readJsonFile<Record<string, IndexedFile>>(scanIndexPath)
       .then((value) => {
         scanIndex = new Map(Object.entries(value ?? {}));
         return scanIndex;
@@ -105,7 +112,7 @@ function scheduleIndexSave(): void {
   saveTimer = setTimeout(() => {
     saveTimer = null;
     if (!scanIndex) return;
-    void writeJsonFile(SCAN_INDEX, Object.fromEntries(scanIndex)).catch(() => undefined);
+    void writeJsonFile(scanIndexPath, Object.fromEntries(scanIndex)).catch(() => undefined);
   }, 250);
   saveTimer.unref?.();
 }
@@ -116,6 +123,7 @@ async function collect(
   files: ScannedFile[],
   seen: Set<string>,
   index: Map<string, IndexedFile>,
+  visitedDirs: Set<string>,
 ): Promise<void> {
   let entries;
   try {
@@ -128,9 +136,23 @@ async function collect(
     const full = join(directory, entry.name);
 
     if (entry.isDirectory()) {
-      if (entry.name === 'blobs' || entry.name === '.locks') continue;
-      await collect(full, source, files, seen, index);
+      if (source === 'huggingface' && (entry.name === 'blobs' || entry.name === '.locks')) {
+        continue;
+      }
+      await collect(full, source, files, seen, index, visitedDirs);
       continue;
+    }
+
+    if (entry.isSymbolicLink()) {
+      const info = await stat(full).catch(() => null);
+      if (info?.isDirectory()) {
+        const realDir = await realpath(full).catch(() => null);
+        if (realDir && !visitedDirs.has(realDir)) {
+          visitedDirs.add(realDir);
+          await collect(full, source, files, seen, index, visitedDirs);
+        }
+        continue;
+      }
     }
 
     if (!entry.name.toLowerCase().endsWith('.gguf')) continue;
@@ -147,6 +169,7 @@ async function collect(
 
       const cached = index.get(real);
       if (cached && cached.mtimeMs === info.mtimeMs && cached.size === info.size) {
+        if (cached.ignored || !cached.file) continue;
         files.push({ ...cached.file, path: full });
         continue;
       }
@@ -166,8 +189,12 @@ async function collect(
             ? 'draft'
             : 'model';
 
-      // Skip diffusion and other non-text GGUF files: they have no tokenizer.
-      if (kind === 'model' && !isTextModel(signature)) continue;
+      // Cache non-text GGUFs too, otherwise they are re-parsed on every scan.
+      if (kind === 'model' && !isTextModel(signature)) {
+        index.set(real, { mtimeMs: info.mtimeMs, size: info.size, ignored: true });
+        scheduleIndexSave();
+        continue;
+      }
 
       const scanned: ScannedFile = {
         path: full,
@@ -210,13 +237,18 @@ export function clearModelScanCache(): void {
 async function performScan(extraDirs: string[]): Promise<LocalFiles> {
   const files: ScannedFile[] = [];
   const seen = new Set<string>();
+  const visitedDirs = new Set<string>();
   const index = await loadScanIndex();
 
   for (const directory of huggingFaceCacheDirs()) {
-    await collect(directory, 'huggingface', files, seen, index);
+    const real = await realpath(directory).catch(() => directory);
+    visitedDirs.add(real);
+    await collect(directory, 'huggingface', files, seen, index, visitedDirs);
   }
   for (const directory of extraDirs) {
-    await collect(directory, 'local', files, seen, index);
+    const real = await realpath(directory).catch(() => directory);
+    visitedDirs.add(real);
+    await collect(directory, 'local', files, seen, index, visitedDirs);
   }
 
   const models = files

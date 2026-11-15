@@ -59,7 +59,12 @@ export {
   scanLocalModels,
 } from './models.js';
 export type { AuxiliaryFile, GgufKind, LocalFiles, LocalModel } from './models.js';
-export { clearModelScanCache, huggingFaceHubDir, listModelDirectories } from './models.js';
+export {
+  clearModelScanCache,
+  huggingFaceHubDir,
+  listModelDirectories,
+  setModelScanIndex,
+} from './models.js';
 export { revealPath } from './reveal.js';
 export {
   readGgufInfo,
