@@ -74,6 +74,30 @@ describe('parseHelpOptions', () => {
     expect(byId.get('vision')?.description).toBe('--serve takes images too');
   });
 
+  it('does not swallow section separators into descriptions', () => {
+    const options = parseHelpOptions(
+      '--backend-sampling   enable backend sampling\n----- speculative params -----\n--spec-type TYPE   speculative type',
+    );
+    const byId = new Map(options.map((option) => [option.id, option]));
+    expect(byId.get('backend-sampling')?.description).toBe('enable backend sampling');
+    expect(byId.get('spec-type')?.description).toBe('speculative type');
+  });
+
+  it('joins wrapped descriptions that continue with a flag mention', () => {
+    const options = parseHelpOptions(
+      [
+        '--ignore-eos                            ignore end of stream token and continue generating (implies',
+        '                                        --logit-bias EOS-inf)',
+        '--temp, --temperature N                 temperature (default: 0.80)',
+      ].join('\n'),
+    );
+    const byId = new Map(options.map((option) => [option.id, option]));
+    expect(byId.get('ignore-eos')?.description).toBe(
+      'ignore end of stream token and continue generating (implies --logit-bias EOS-inf)',
+    );
+    expect(byId.get('temperature')?.description).toBe('temperature (default: 0.80)');
+  });
+
   it('prefers a positive value option over a negated boolean variant', () => {
     const options = parseHelpOptions(
       '--no-flash-attn   disable Flash Attention\n-fa, --flash-attn (auto|on|off)   set Flash Attention',
@@ -129,6 +153,21 @@ describe('buildHelpSettings', () => {
       choices: ['on', 'off', 'auto'],
       category: 'gpu',
     });
+  });
+
+  it('filters launcher-managed, preset and removed flags', () => {
+    const options = parseHelpOptions(
+      [
+        '--model PATH   model path',
+        '--port N   port to listen',
+        '--draft N   the argument has been removed. use --spec-draft-n-max',
+        '--fim-qwen-7b-default   use a preset',
+        '--cache-list   show list of models in cache',
+        '--ctx-size N   context size',
+      ].join('\n'),
+    );
+    const result = buildHelpSettings(backend(), options);
+    expect(Object.keys(result.settings)).toEqual(['ctx-size']);
   });
 
   it('maps negated-only flags with invert', () => {

@@ -118,6 +118,7 @@ setting-repeat-penalty = Repeat penalty
 setting-repeat-penalty-desc = Penalize repeated tokens. 1.0 disables the penalty.
 manage-memory-estimate = Memory estimate — RAM ≈ { $ram } · VRAM ≈ { $vram }
 manage-advanced = Advanced settings
+manage-raw-options = Raw binary options
 setting-cpu-range = CPU range
 setting-cpu-range-desc = Restrict worker threads to a CPU range, for example "0-7".
 setting-repack = Weight repacking

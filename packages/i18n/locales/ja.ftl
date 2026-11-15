@@ -118,6 +118,7 @@ setting-repeat-penalty = 繰り返しペナルティ
 setting-repeat-penalty-desc = 繰り返されたトークンにペナルティを与えます。1.0 で無効。
 manage-memory-estimate = メモリ推定 — RAM ≈ { $ram } · VRAM ≈ { $vram }
 manage-advanced = 詳細設定
+manage-raw-options = バイナリの生オプション
 setting-cpu-range = CPU 範囲
 setting-cpu-range-desc = スレッドを CPU 範囲に制限します。例: "0-7"。
 setting-repack = 重みリパック

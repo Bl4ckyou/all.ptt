@@ -27,7 +27,26 @@ const SKIP = new Set([
   'list-devices',
   'completion-bash',
   'completion-zsh',
+  'cache-list',
+  // Managed by the launcher: letting the user override these breaks starts.
+  'model',
+  'model-url',
+  'host',
+  'port',
+  'mmproj-url',
+  'hf-repo',
+  'hf-file',
+  'hf-token',
+  'docker-repo',
+  'models-dir',
+  'models-preset',
+  'ui',
+  'ui-config',
+  'ui-config-file',
 ]);
+
+// Download presets exposed by llama.cpp; they pick a model by themselves.
+const PRESET = /^(fim-qwen|gpt-oss|vision-gemma|embd-gemma|spec-default)/;
 
 function clean(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
@@ -118,7 +137,9 @@ function parseSpec(spec: string): SpecGroup[] {
 }
 
 function makeOption(longs: string[], metavar: string): HelpOption | null {
-  const positive = longs.find((flag) => !flag.startsWith('--no-'));
+  const positive = longs
+    .filter((flag) => !flag.startsWith('--no-'))
+    .sort((a, b) => b.length - a.length)[0];
   const negative = longs.find((flag) => flag.startsWith('--no-'));
   const flag = positive ?? negative;
   if (!flag) return null;
@@ -171,6 +192,10 @@ export function parseHelpOptions(text: string): HelpOption[] {
     const line = raw.replace(/\t/g, '    ');
     const content = line.trim();
     if (!content) continue;
+    if (/^-{3,}/.test(content)) {
+      flush();
+      continue;
+    }
 
     const indent = line.length - line.trimStart().length;
     const startsLikeOption = content.startsWith('-');
@@ -231,6 +256,8 @@ export function buildHelpSettings(backend: BackendEntry, options: HelpOption[]):
   const advanced = Object.keys(backend.settings ?? {}).length > 0;
 
   for (const option of options) {
+    if (SKIP.has(option.id) || PRESET.test(option.id)) continue;
+    if (/has been removed/i.test(option.description)) continue;
     if (option.aliases.some((alias) => known.has(alias)) || known.has(option.flag)) continue;
     if (settings[option.id]) continue;
 

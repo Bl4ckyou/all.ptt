@@ -118,6 +118,7 @@ setting-repeat-penalty = Pénalité de répétition
 setting-repeat-penalty-desc = Pénalise les tokens répétés. 1.0 désactive la pénalité.
 manage-memory-estimate = Estimation mémoire — RAM ≈ { $ram } · VRAM ≈ { $vram }
 manage-advanced = Réglages avancés
+manage-raw-options = Options brutes du binaire
 setting-cpu-range = Plage CPU
 setting-cpu-range-desc = Restreint les threads à une plage de CPU, par exemple "0-7".
 setting-repack = Repacking des poids

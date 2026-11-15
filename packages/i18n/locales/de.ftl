@@ -118,6 +118,7 @@ setting-repeat-penalty = Wiederholungsstrafe
 setting-repeat-penalty-desc = Bestraft wiederholte Tokens. 1.0 deaktiviert die Strafe.
 manage-memory-estimate = Speicherschätzung — RAM ≈ { $ram } · VRAM ≈ { $vram }
 manage-advanced = Erweiterte Einstellungen
+manage-raw-options = Rohe Binäroptionen
 setting-cpu-range = CPU-Bereich
 setting-cpu-range-desc = Beschränkt Threads auf einen CPU-Bereich, zum Beispiel "0-7".
 setting-repack = Gewichts-Repacking

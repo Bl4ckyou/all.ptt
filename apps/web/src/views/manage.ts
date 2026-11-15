@@ -608,12 +608,28 @@ export function createManage(actions: Actions): Manage {
 
       if (basic.length > 0) settingsHost.append(renderGroup(basic));
       if (advanced.length > 0) {
+        const curated = advanced.filter((setting) => setting.descriptionKey);
+        const raw = advanced.filter((setting) => !setting.descriptionKey);
+        const body = el('div', {});
+        if (curated.length > 0) body.append(renderGroup(curated));
+        if (raw.length > 0) {
+          body.append(
+            el('details', { class: 'advanced raw-options' }, [
+              el('summary', { class: 'advanced-summary' }, [
+                icon('manage', 'icon small'),
+                t('manage-raw-options'),
+              ]),
+              renderGroup(raw),
+            ]),
+          );
+        }
+
         configAdvanced = el('details', { class: 'advanced' }, [
           el('summary', { class: 'advanced-summary' }, [
             icon('manage', 'icon small'),
             t('manage-advanced'),
           ]),
-          renderGroup(advanced),
+          body,
         ]);
         settingsHost.append(configAdvanced);
       }
