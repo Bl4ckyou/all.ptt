@@ -170,6 +170,29 @@ describe('buildHelpSettings', () => {
     expect(Object.keys(result.settings)).toEqual(['ctx-size']);
   });
 
+  it('hides server and admin flags, and clarifies ambiguous labels', () => {
+    const options = parseHelpOptions(
+      [
+        '--cors-origins LIST   allowed origins',
+        '--api-key KEY   api key',
+        '--models-max N   router models',
+        '--log-file PATH   log file',
+        '--threads-http N   http threads',
+        '--mmproj-auto   auto multimodal projector',
+        '--n-predict N   tokens to predict',
+        '--ctx-checkpoints N   checkpoints',
+      ].join('\n'),
+    );
+    const result = buildHelpSettings(backend(), options);
+    expect(Object.keys(result.settings).sort()).toEqual([
+      'ctx-checkpoints',
+      'mmproj-auto',
+      'n-predict',
+    ]);
+    expect(result.catalog['n-predict']?.label).toBe('Tokens to predict');
+    expect(result.catalog['ctx-checkpoints']?.label).toBe('Context checkpoints');
+  });
+
   it('maps negated-only flags with invert', () => {
     const result = buildHelpSettings(backend(), parseHelpOptions(IK_HELP));
     expect(result.settings.mmap).toEqual({ flag: '--no-mmap', invert: true });

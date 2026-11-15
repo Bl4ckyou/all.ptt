@@ -48,6 +48,61 @@ const SKIP = new Set([
 // Download presets exposed by llama.cpp; they pick a model by themselves.
 const PRESET = /^(fim-qwen|gpt-oss|vision-gemma|embd-gemma|spec-default)/;
 
+// HTTP/UI/router flags: PTT owns these, exposing them only adds noise and risk.
+const SERVER_ONLY =
+  /^(cors-|ssl-|api-|webui-|ui-|models-|mcp-|tools$|tools-|allow-unauthenticated-tools$|agent$|connect$|connect-|rerank|metrics$|props$|slots?$|slot-|media-|path$|reuse-port$|timeout$|sse-|log-|offline$|alias$|tags$|rpc$|threads-http$|sleep-idle-seconds$)/;
+
+const LABELS: Record<string, string> = {
+  'n-predict': 'Tokens to predict',
+  typical: 'Locally typical p',
+  'embd-normalize': 'Embedding normalization',
+  'prio-batch': 'Batch priority',
+  'poll-batch': 'Batch polling',
+  'mmproj-auto': 'Auto multimodal projector',
+  'mtmd-batch-max-tokens': 'Max image tokens per batch',
+  'kv-unified': 'Unified KV cache',
+  'kv-unified-per-slot': 'KV cache per slot',
+  'swa-full': 'Full-size SWA cache',
+  'ctx-checkpoints': 'Context checkpoints',
+  'context-shift': 'Context shift',
+  'n-cpu-moe': 'CPU MoE layers',
+  'n-cpu-ffn': 'CPU FFN layers',
+  'op-offload': 'Offload tensor ops',
+  'load-mode': 'Model load mode',
+  'lazy-mode': 'Lazy tensor loading',
+  fit: 'Fit to device memory',
+  'fit-target': 'Fit margin per device',
+  'fit-ctx': 'Minimum fit context',
+  'reasoning-preserve': 'Preserve reasoning trace',
+  'reasoning-effort': 'Reasoning effort',
+  'reasoning-budget': 'Reasoning budget',
+  'check-tensors': 'Check tensor data',
+  'yarn-orig-ctx': 'YaRN original context',
+  'yarn-ext-factor': 'YaRN extrapolation factor',
+  'yarn-attn-factor': 'YaRN attention factor',
+  'yarn-beta-slow': 'YaRN beta slow',
+  'yarn-beta-fast': 'YaRN beta fast',
+  'rope-scaling': 'RoPE scaling method',
+  'rope-scale': 'RoPE scale',
+  'rope-freq-base': 'RoPE base frequency',
+  'rope-freq-scale': 'RoPE frequency scale',
+  'moe-cache-mib': 'MoE cache size',
+  'moe-cache-cpu-share': 'MoE CPU cache share',
+  'lookup-cache-static': 'Static lookup cache',
+  'lookup-cache-dynamic': 'Dynamic lookup cache',
+  'xtc-probability': 'XTC probability',
+  'xtc-threshold': 'XTC threshold',
+  'adaptive-target': 'Adaptive-p target',
+  'adaptive-decay': 'Adaptive-p decay',
+  'override-kv': 'Override KV metadata',
+  'control-vector': 'Control vector',
+  'control-vector-scaled': 'Scaled control vector',
+  'control-vector-layer-range': 'Control vector layers',
+  lora: 'LoRA adapter',
+  'lora-scaled': 'Scaled LoRA adapter',
+  shard: 'Extra GGUF shards',
+};
+
 function clean(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
@@ -256,7 +311,7 @@ export function buildHelpSettings(backend: BackendEntry, options: HelpOption[]):
   const advanced = Object.keys(backend.settings ?? {}).length > 0;
 
   for (const option of options) {
-    if (SKIP.has(option.id) || PRESET.test(option.id)) continue;
+    if (SKIP.has(option.id) || PRESET.test(option.id) || SERVER_ONLY.test(option.id)) continue;
     if (/has been removed/i.test(option.description)) continue;
     if (option.aliases.some((alias) => known.has(alias)) || known.has(option.flag)) continue;
     if (settings[option.id]) continue;
@@ -265,7 +320,7 @@ export function buildHelpSettings(backend: BackendEntry, options: HelpOption[]):
       type: option.kind,
       category: categoryOf(option.id),
       advanced,
-      label: humanize(option.id),
+      label: LABELS[option.id] ?? humanize(option.id),
       description: option.description || option.flag,
     };
     if (option.choices) definition.choices = option.choices;
