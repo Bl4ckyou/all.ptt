@@ -633,12 +633,53 @@ export function createManage(actions: Actions): Manage {
               },
             },
           });
+          const translateStatus = el('span', { class: 'manage-line muted' });
+          const translateButton = el('button', {
+            class: 'button',
+            on: {
+              click: () => {
+                if (!configBackend) return;
+                translateButton.disabled = true;
+                translateStatus.textContent = '';
+                void actions
+                  .getBackendSettings(configBackend, currentLocale())
+                  .then((info) => {
+                    let changed = false;
+                    for (const fresh of info.settings) {
+                      const row = configRows.get(fresh.id);
+                      if (!row || fresh.descriptionKey) continue;
+                      const name = row.element.querySelector('.setting-name');
+                      const desc = row.element.querySelector('.setting-desc');
+                      if (name && fresh.label && name.textContent !== fresh.label) {
+                        name.textContent = fresh.label;
+                        row.setting.label = fresh.label;
+                        changed = true;
+                      }
+                      if (desc && fresh.description && desc.textContent !== fresh.description) {
+                        desc.textContent = fresh.description;
+                        row.setting.description = fresh.description;
+                        changed = true;
+                      }
+                    }
+                    if (!changed) translateStatus.textContent = t('manage-translate-none');
+                    refreshSettingsVisibility();
+                  })
+                  .catch(() => {
+                    translateStatus.textContent = t('manage-translate-error');
+                  })
+                  .finally(() => {
+                    translateButton.disabled = false;
+                  });
+              },
+            },
+          }, [icon('refresh'), t('manage-translate')]);
           body.append(
             el('details', { class: 'advanced raw-options' }, [
               el('summary', { class: 'advanced-summary' }, [
                 icon('manage', 'icon small'),
                 t('manage-raw-options'),
               ]),
+              el('div', { class: 'manage-actions' }, [translateButton, translateStatus]),
               searchInput,
               groups,
             ]),

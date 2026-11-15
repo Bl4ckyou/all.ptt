@@ -193,6 +193,25 @@ describe('buildHelpSettings', () => {
     expect(result.catalog['ctx-checkpoints']?.label).toBe('Context checkpoints');
   });
 
+  it('keeps only inference-related options', () => {
+    const options = parseHelpOptions(
+      [
+        '--color   colorize output',
+        '--interactive   interactive mode',
+        '--hellaswag   run the benchmark',
+        '--cache-type-k TYPE   K cache type',
+        '--rope-scaling TYPE   rope method',
+        '--mmproj-auto   auto projector',
+      ].join('\n'),
+    );
+    const result = buildHelpSettings(backend(), options);
+    expect(Object.keys(result.settings).sort()).toEqual([
+      'cache-type-k',
+      'mmproj-auto',
+      'rope-scaling',
+    ]);
+  });
+
   it('maps negated-only flags with invert', () => {
     const result = buildHelpSettings(backend(), parseHelpOptions(IK_HELP));
     expect(result.settings.mmap).toEqual({ flag: '--no-mmap', invert: true });

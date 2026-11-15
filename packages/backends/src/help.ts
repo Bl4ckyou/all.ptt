@@ -52,6 +52,10 @@ const PRESET = /^(fim-qwen|gpt-oss|vision-gemma|embd-gemma|spec-default)/;
 const SERVER_ONLY =
   /^(cors-|ssl-|api-|webui-|ui-|models-|mcp-|tools$|tools-|allow-unauthenticated-tools$|agent$|connect$|connect-|rerank|metrics$|props$|slots?$|slot-|media-|path$|reuse-port$|timeout$|sse-|log-|offline$|alias$|tags$|rpc$|threads-http$|sleep-idle-seconds$|verbose$|verbosity$|perf$)/;
 
+// Keep only options related to running a model. Everything else is server/admin noise.
+const INFERENCE =
+  /(ctx|context|batch|ubatch|thread|cpu|gpu|cuda|vulkan|rocm|metal|offload|split|tensor|layer|moe|expert|ffn|cache|kv|(?:^|-)swa(?:$|-)|attention|flash|spec|draft|mtp|ngram|suffix|sampl|temp|top-|min-p|typical|xtc|dry|mirostat|penalty|seed|repeat|logit|grammar|json-schema|embed|embd|mmproj|mtmd|image|video|tts|lora|control-vector|rope|yarn|fit|predict|keep|quant|repack|warmup|jinja|chat-template|reasoning|token|prompt|model|numa|mlock|mmap|prefetch|defer|resident|huge|transparent|pooling|device|load|eos)/;
+
 const LABELS: Record<string, string> = {
   'n-predict': 'Tokens to predict',
   typical: 'Locally typical p',
@@ -312,6 +316,7 @@ export function buildHelpSettings(backend: BackendEntry, options: HelpOption[]):
 
   for (const option of options) {
     if (SKIP.has(option.id) || PRESET.test(option.id) || SERVER_ONLY.test(option.id)) continue;
+    if (!INFERENCE.test(option.id)) continue;
     if (/has been removed/i.test(option.description)) continue;
     if (option.aliases.some((alias) => known.has(alias)) || known.has(option.flag)) continue;
     if (settings[option.id]) continue;
