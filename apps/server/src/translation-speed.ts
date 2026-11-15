@@ -11,17 +11,24 @@ export interface SpeedConfig {
   maxConcurrency: number;
 }
 
-export function speedConfig(totalBytes: number): SpeedConfig {
-  const memoryGb = Math.round(totalBytes / 1024 ** 3);
+export const SLOT_CONTEXT = 4096;
 
-  if (memoryGb < 8) {
+export function totalContext(config: SpeedConfig): number {
+  return SLOT_CONTEXT * config.maxConcurrency;
+}
+
+export function speedConfig(totalBytes: number): SpeedConfig {
+  // iGPUs reserve RAM, so a physical 16 GB box often reports ~15 GiB.
+  const memoryGb = Math.round((totalBytes / 1024 ** 3) * 10) / 10;
+
+  if (memoryGb < 7) {
     return {
       memoryGb,
       options: [{ id: 'normal', concurrency: 1 }],
       maxConcurrency: 1,
     };
   }
-  if (memoryGb < 16) {
+  if (memoryGb < 14) {
     return {
       memoryGb,
       options: [{ id: 'normal', concurrency: 2 }],

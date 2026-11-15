@@ -24,6 +24,7 @@ import {
   concurrencyFor,
   normalSpeed,
   speedConfig,
+  totalContext,
   type SpeedOption,
   type TranslationSpeed,
 } from './translation-speed.js';
@@ -466,6 +467,8 @@ export class TranslationManager {
           MODEL_ALIAS,
           '--parallel',
           String(this.speedConfig.maxConcurrency),
+          '--ctx-size',
+          String(totalContext(this.speedConfig)),
         ],
       },
     });
