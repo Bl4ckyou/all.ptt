@@ -110,6 +110,18 @@ setting-continuous-batching = Continuous batching
 setting-continuous-batching-desc = Process new requests while others are still generating.
 setting-seed = Seed
 setting-seed-desc = Random seed for sampling. -1 picks a new one each time.
+setting-n-predict = Tokens to predict
+setting-n-predict-desc = Maximum tokens to generate (-1 = unlimited).
+setting-ctx-checkpoints = Context checkpoints
+setting-ctx-checkpoints-desc = Maximum context checkpoints kept per slot.
+setting-cache-ram = Prompt cache size
+setting-cache-ram-desc = Maximum prompt cache in MiB (0 disables, -1 = unlimited).
+setting-kv-unified = Unified KV cache
+setting-kv-unified-desc = Share one KV buffer across all slots.
+setting-context-shift = Context shift
+setting-context-shift-desc = Shift the context instead of stopping on infinite generation.
+setting-swa-full = Full-size SWA cache
+setting-swa-full-desc = Use the full-size sliding-window attention cache.
 setting-top-k = Top-k
 setting-top-k-desc = Keep only the k most likely tokens. 0 disables the limit.
 setting-min-p = Min-p
@@ -119,6 +131,7 @@ setting-repeat-penalty-desc = Penalize repeated tokens. 1.0 disables the penalty
 manage-memory-estimate = Memory estimate — RAM ≈ { $ram } · VRAM ≈ { $vram }
 manage-advanced = Advanced settings
 manage-raw-options = Raw binary options
+manage-raw-search = Search raw options
 setting-cpu-range = CPU range
 setting-cpu-range-desc = Restrict worker threads to a CPU range, for example "0-7".
 setting-repack = Weight repacking

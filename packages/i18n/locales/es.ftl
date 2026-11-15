@@ -110,6 +110,18 @@ setting-continuous-batching = Batching continuo
 setting-continuous-batching-desc = Procesa nuevas peticiones mientras otras siguen generando.
 setting-seed = Semilla
 setting-seed-desc = Semilla aleatoria para el muestreo. -1 elige una nueva cada vez.
+setting-n-predict = Tokens a generar
+setting-n-predict-desc = Número máximo de tokens a generar (-1 = ilimitado).
+setting-ctx-checkpoints = Puntos de control del contexto
+setting-ctx-checkpoints-desc = Número máximo de puntos de control por slot.
+setting-cache-ram = Tamaño de caché de prompt
+setting-cache-ram-desc = Tamaño máximo del caché de prompt en MiB (0 desactiva, -1 = ilimitado).
+setting-kv-unified = Caché KV unificado
+setting-kv-unified-desc = Comparte un único búfer KV entre todos los slots.
+setting-context-shift = Desplazamiento de contexto
+setting-context-shift-desc = Desplaza el contexto en lugar de detenerse en generación infinita.
+setting-swa-full = Caché SWA completa
+setting-swa-full-desc = Usa la caché de atención de ventana deslizante completa.
 setting-top-k = Top-k
 setting-top-k-desc = Conserva solo los k tokens más probables. 0 desactiva el límite.
 setting-min-p = Min-p
@@ -119,6 +131,7 @@ setting-repeat-penalty-desc = Penaliza tokens repetidos. 1.0 desactiva la penali
 manage-memory-estimate = Memoria estimada — RAM ≈ { $ram } · VRAM ≈ { $vram }
 manage-advanced = Ajustes avanzados
 manage-raw-options = Opciones brutas del binario
+manage-raw-search = Buscar en opciones brutas
 setting-cpu-range = Rango de CPU
 setting-cpu-range-desc = Restringe los hilos a un rango de CPU, por ejemplo "0-7".
 setting-repack = Reempaquetado de pesos

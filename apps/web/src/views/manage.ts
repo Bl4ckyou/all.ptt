@@ -56,6 +56,8 @@ export function createManage(actions: Actions): Manage {
   let configAvailableSpecTypes = new Set<string>();
   let configRows = new Map<string, { setting: ResolvedSettingInfo; element: HTMLElement }>();
   let configSections: HTMLElement[] = [];
+  let rawSearch = '';
+  const rawElements = new Set<HTMLElement>();
   let configAdvanced: HTMLDetailsElement | null = null;
   let configSaving = false;
   let configError: string | null = null;
@@ -566,8 +568,11 @@ export function createManage(actions: Actions): Manage {
   }
 
   function refreshSettingsVisibility(): void {
+    const query = rawSearch.trim().toLowerCase();
     for (const { setting, element } of configRows.values()) {
-      element.hidden = !dependsOnSatisfied(setting, configValues);
+      const haystack = `${setting.id} ${setting.label ?? ''} ${setting.description ?? ''}`.toLowerCase();
+      const matches = query === '' || !rawElements.has(element) || haystack.includes(query);
+      element.hidden = !dependsOnSatisfied(setting, configValues) || !matches;
     }
 
     for (const section of configSections) {
@@ -596,6 +601,7 @@ export function createManage(actions: Actions): Manage {
     settingsHost.replaceChildren();
     configRows = new Map();
     configSections = [];
+    rawElements.clear();
     configAdvanced = null;
 
     if (configError) {
@@ -613,13 +619,28 @@ export function createManage(actions: Actions): Manage {
         const body = el('div', {});
         if (curated.length > 0) body.append(renderGroup(curated));
         if (raw.length > 0) {
+          const groups = renderGroup(raw);
+          for (const row of groups.querySelectorAll<HTMLElement>('.setting-row')) {
+            rawElements.add(row);
+          }
+          const searchInput = el('input', {
+            class: 'control',
+            attrs: { type: 'search', placeholder: t('manage-raw-search') },
+            on: {
+              input: () => {
+                rawSearch = searchInput.value;
+                refreshSettingsVisibility();
+              },
+            },
+          });
           body.append(
             el('details', { class: 'advanced raw-options' }, [
               el('summary', { class: 'advanced-summary' }, [
                 icon('manage', 'icon small'),
                 t('manage-raw-options'),
               ]),
-              renderGroup(raw),
+              searchInput,
+              groups,
             ]),
           );
         }
