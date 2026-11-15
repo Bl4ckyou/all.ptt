@@ -196,13 +196,16 @@ class NativeTranslator implements Translator {
     if (!provider) throw new Error('translation provider is not running');
 
     let done = 0;
-    return mapLimit(texts, 4, async (text) => {
+    return mapLimit(texts, 3, async (text) => {
       const messages: ChatMessage[] = [{ role: 'user', content: text }];
       let content = '';
-      for await (const event of provider.chat({
+      try {
+        for await (const event of provider.chat({
         model: MODEL_ALIAS,
         messages,
         temperature: 0,
+        maxTokens: 512,
+        signal: AbortSignal.timeout(30_000),
         ...(this.template
           ? {
               chatTemplateKwargs: {
@@ -213,8 +216,12 @@ class NativeTranslator implements Translator {
               },
             }
           : {}),
-      })) {
-        if (event.type === 'content') content += event.delta;
+        })) {
+          if (event.type === 'content') content += event.delta;
+        }
+      } catch {
+        // A slow or stuck translation must not block the whole batch.
+        return '';
       }
       done += 1;
       this.onProgress?.(done, texts.length);

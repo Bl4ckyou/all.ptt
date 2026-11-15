@@ -129,6 +129,7 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
         temperature: request.temperature,
         stream: true,
         ...(request.stop ? { stop: request.stop } : {}),
+        ...(request.maxTokens ? { max_tokens: request.maxTokens } : {}),
         ...(request.chatTemplateKwargs
           ? { chat_template_kwargs: request.chatTemplateKwargs }
           : {}),

@@ -91,6 +91,8 @@ export class ProviderTranslator implements Translator {
         model: this.config.model,
         messages,
         temperature: 0,
+        maxTokens: 1024,
+        signal: AbortSignal.timeout(60_000),
       })) {
         if (event.type === 'content') content += event.delta;
       }
@@ -161,7 +163,9 @@ export class TranslationService {
         );
         let changed = false;
         entries.forEach(([key, value], index) => {
-          const restored = restoreTokens(translated[index] ?? '', value.tokens);
+          const output = translated[index] ?? '';
+          if (!output.trim()) return;
+          const restored = restoreTokens(output, value.tokens);
           if (restored === null) return;
           cache[key] = restored;
           if (restored !== sources[keys.indexOf(key)]) changed = true;

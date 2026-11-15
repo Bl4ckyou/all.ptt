@@ -11,6 +11,7 @@ export interface ChatRequest {
   temperature?: number;
   signal?: AbortSignal;
   stop?: string[];
+  maxTokens?: number;
   chatTemplateKwargs?: Record<string, unknown>;
 }
 
