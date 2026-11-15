@@ -2,7 +2,11 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { findTranslationCandidates, findTranslationModel } from './translation-backend.js';
+import {
+  findTranslationCandidates,
+  findTranslationModel,
+  splitForTranslation,
+} from './translation-backend.js';
 
 const temporaryDirectories: string[] = [];
 const originalHub = process.env.HF_HUB_CACHE;
@@ -102,5 +106,19 @@ describe('findTranslationModel', () => {
     const emptyHub = await workspace();
     process.env.HF_HUB_CACHE = emptyHub;
     await expect(findTranslationModel([emptyHub])).resolves.toBeNull();
+  });
+});
+
+describe('splitForTranslation', () => {
+  it('keeps short texts in one chunk', () => {
+    expect(splitForTranslation('short text')).toEqual(['short text']);
+  });
+
+  it('splits long texts without losing content', () => {
+    const text = 'This is a sentence. '.repeat(200);
+    const chunks = splitForTranslation(text, 200);
+    expect(chunks.length).toBeGreaterThan(1);
+    for (const chunk of chunks) expect(chunk.length).toBeLessThanOrEqual(201);
+    expect(chunks.join(' ').replace(/\s+/g, ' ').trim()).toBe(text.trim());
   });
 });

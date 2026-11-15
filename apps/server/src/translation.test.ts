@@ -2,6 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { writeFile } from 'node:fs/promises';
 import { MutableTranslator, TranslationService, type Translator } from './translation.js';
 
 class FakeTranslator implements Translator {
@@ -104,6 +105,48 @@ describe('TranslationService', () => {
       service.translate(['CPU mask (env: LLAMA_ARG_X) (default: 0)'], 'fr'),
     ).resolves.toEqual(['FR CPU mask (default: 0) (env: LLAMA_ARG_X)']);
     expect(translator.calls[0]).toEqual(['CPU mask (default: 0)']);
+  });
+
+  it('reports translation coverage from the cache', async () => {
+    const root = await workspace();
+    const translator = new FakeTranslator();
+    const service = new TranslationService(root, translator);
+
+    await expect(service.coverage(['Hello', 'World'], 'fr')).resolves.toEqual({
+      translated: 0,
+      total: 2,
+    });
+    await service.translate(['Hello'], 'fr');
+    await expect(service.coverage(['Hello', 'World'], 'fr')).resolves.toEqual({
+      translated: 1,
+      total: 2,
+    });
+  });
+
+  it('ignores legacy cache versions for coverage', async () => {
+    const root = await workspace();
+    const translator = new FakeTranslator();
+    const service = new TranslationService(root, translator);
+    await service.translate(['Hello'], 'fr');
+
+    await (await import('node:fs/promises')).mkdir(join(root, '.ptt', 'translations'), {
+      recursive: true,
+    });
+    await writeFile(
+      join(root, '.ptt', 'translations', 'fr.json'),
+      JSON.stringify({ version: 3, entries: { anything: 'nope' } }),
+    );
+
+    await expect(service.coverage(['Hello'], 'fr')).resolves.toEqual({
+      translated: 0,
+      total: 1,
+    });
+  });
+
+  it('does not cache empty translations', async () => {
+    const translator = new FakeTranslator(() => ['']);
+    const service = new TranslationService(await workspace(), translator);
+    await expect(service.translate(['Hello'], 'fr')).resolves.toEqual(['Hello']);
   });
 
   it('only sends uncached unique texts', async () => {

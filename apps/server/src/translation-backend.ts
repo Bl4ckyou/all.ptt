@@ -184,7 +184,7 @@ async function mapLimit<T, R>(
   return results;
 }
 
-function splitForTranslation(text: string, limit = 1200): string[] {
+export function splitForTranslation(text: string, limit = 1200): string[] {
   if (text.length <= limit) return [text];
 
   const parts: string[] = [];
@@ -212,7 +212,7 @@ class NativeTranslator implements Translator {
     if (!provider) throw new Error('translation provider is not running');
 
     let done = 0;
-    return mapLimit(texts, 2, async (text) => {
+    return mapLimit(texts, 3, async (text) => {
       const pieces: string[] = [];
 
       try {
@@ -422,6 +422,8 @@ export class TranslationManager {
           '--jinja',
           '--alias',
           MODEL_ALIAS,
+          '--parallel',
+          '3',
         ],
       },
     });
