@@ -20,6 +20,14 @@ const defaults: AppConfig = {
   modelDirs: [],
 };
 
+function parsePort(value: unknown): number {
+  const port = typeof value === 'number' ? value : Number(value);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new Error(`invalid port: ${String(value)}`);
+  }
+  return port;
+}
+
 async function readConfigFile(path: string): Promise<Partial<AppConfig>> {
   try {
     return JSON.parse(await readFile(path, 'utf8')) as Partial<AppConfig>;
@@ -35,7 +43,7 @@ export async function loadConfig(): Promise<AppConfig> {
 
   return {
     host: env.PTT_HOST ?? file.host ?? defaults.host,
-    port: env.PTT_PORT ? Number(env.PTT_PORT) : (file.port ?? defaults.port),
+    port: parsePort(env.PTT_PORT ?? file.port ?? defaults.port),
     providers: file.providers ?? defaults.providers,
     backendRoot: resolve(env.PTT_BACKEND_ROOT ?? file.backendRoot ?? defaults.backendRoot),
     modelDirs: env.PTT_MODEL_DIRS

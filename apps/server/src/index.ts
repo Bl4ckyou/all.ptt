@@ -8,7 +8,10 @@ import { ProviderRegistry } from './providers.js';
 import { ProjectStore } from './projects.js';
 import { serveStatic } from './static.js';
 
-const config = await loadConfig();
+const config = await loadConfig().catch((error: Error) => {
+  console.error(`Failed to load config: ${error.message}`);
+  process.exit(1);
+});
 const registry = new ProviderRegistry(config.providers);
 const launcher = new BackendLauncher(config.backendRoot, (providerId) => registry.remove(providerId));
 const jobs = new JobManager();
@@ -49,6 +52,16 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify({ error: 'error.unknown' }));
     }
   }
+});
+
+server.on('error', (error: NodeJS.ErrnoException) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`Port ${config.port} is already in use on ${config.host}.`);
+    console.error('Stop the process using it, or set PTT_PORT to another port.');
+  } else {
+    console.error(error);
+  }
+  process.exit(1);
 });
 
 server.listen(config.port, config.host, () => {
