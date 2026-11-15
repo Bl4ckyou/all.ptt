@@ -25,6 +25,7 @@ import {
   translationDisableRoute,
   translationDownloadRoute,
   translationEnableRoute,
+  translationSpeedRoute,
   translationStatusRoute,
 } from './routes/translation.js';
 import { i18nCatalogRoute, i18nLocalesRoute } from './routes/i18n.js';
@@ -75,6 +76,7 @@ export function createApp(context: AppContext): Router {
     .post('/api/translation/download', translationDownloadRoute(context))
     .post('/api/translation/enable', translationEnableRoute(context))
     .post('/api/translation/disable', translationDisableRoute(context))
+    .post('/api/translation/speed', translationSpeedRoute(context))
     .get('/api/backends/jobs/:id', jobRoute(context))
     .post('/api/backends/jobs/:id/pause', pauseJobRoute(context))
     .post('/api/backends/jobs/:id/resume', resumeJobRoute(context))

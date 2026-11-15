@@ -8,6 +8,7 @@ import {
   disableTranslation,
   downloadTranslation,
   enableTranslation,
+  setTranslationSpeed,
   getBackendLatest,
   getBackendSettings,
   getBackends,
@@ -52,6 +53,7 @@ import type {
   LocalModelInfo,
   ModelConfigInfo,
   ReleaseSummary,
+  TranslationSpeed,
   TranslationStatus,
   SettingValue,
 } from './types.js';
@@ -125,6 +127,10 @@ async function enableTranslationAction(path: string): Promise<TranslationStatus>
 
 async function disableTranslationAction(): Promise<TranslationStatus> {
   return disableTranslation();
+}
+
+async function setTranslationSpeedAction(speed: TranslationSpeed): Promise<TranslationStatus> {
+  return setTranslationSpeed(speed);
 }
 
 async function removeBackendAction(id: string): Promise<void> {
@@ -618,6 +624,7 @@ const actions: Actions = {
   downloadTranslation: downloadTranslationAction,
   enableTranslation: enableTranslationAction,
   disableTranslation: disableTranslationAction,
+  setTranslationSpeed: setTranslationSpeedAction,
   installBackend: installBackendAction,
   updateBackends: updateBackendsAction,
   pauseJob: pauseJobAction,

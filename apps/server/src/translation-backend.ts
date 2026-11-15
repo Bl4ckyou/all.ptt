@@ -1,10 +1,13 @@
 import { createWriteStream } from 'node:fs';
 import { copyFile, mkdir, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { totalmem } from 'node:os';
 import { dirname, join } from 'node:path';
 import {
   BackendLauncher,
   clearModelScanCache,
   huggingFaceHubDir,
+  readJsonFile,
+  writeJsonFile,
   quantizationOf,
   readGgufSignature,
   readInstalledStates,
@@ -16,6 +19,14 @@ import type { ChatMessage } from '@ptt/core';
 import { OpenAICompatibleProvider } from '@ptt/providers';
 import type { ProviderRegistry } from './providers.js';
 import { ProviderTranslator, type MutableTranslator, type Translator } from './translation.js';
+import {
+  clampSpeed,
+  concurrencyFor,
+  normalSpeed,
+  speedConfig,
+  type SpeedOption,
+  type TranslationSpeed,
+} from './translation-speed.js';
 
 const PROVIDER_ID = 'ptt-translation';
 const MODEL_ALIAS = 'ptt-translation';
@@ -118,6 +129,10 @@ export interface TranslationStatus {
   languages?: string[];
   candidates?: TranslationCandidate[];
   translating?: { done: number; total: number };
+  speed?: TranslationSpeed;
+  speeds?: SpeedOption[];
+  memoryGb?: number;
+  maxConcurrency?: number;
 }
 
 function targetLang(locale: string): string {
@@ -205,6 +220,7 @@ class NativeTranslator implements Translator {
     private readonly registry: ProviderRegistry,
     private readonly template: boolean,
     private readonly onProgress?: (done: number, total: number) => void,
+    private readonly concurrency: () => number = () => 2,
   ) {}
 
   async translate(texts: string[], locale: string): Promise<string[]> {
@@ -212,7 +228,7 @@ class NativeTranslator implements Translator {
     if (!provider) throw new Error('translation provider is not running');
 
     let done = 0;
-    return mapLimit(texts, 3, async (text) => {
+    return mapLimit(texts, this.concurrency(), async (text) => {
       const pieces: string[] = [];
 
       try {
@@ -334,6 +350,9 @@ export class TranslationManager {
   private modelTemplate = false;
   private idleTimer: NodeJS.Timeout | null = null;
   private starting: Promise<void> | null = null;
+  private readonly speedConfig = speedConfig(totalmem());
+  private speed: TranslationSpeed = normalSpeed(this.speedConfig);
+  private readonly settingsPath: string;
 
   constructor(
     private readonly root: string,
@@ -342,13 +361,36 @@ export class TranslationManager {
     private readonly translator: MutableTranslator,
     private readonly modelDirs: string[] = [],
   ) {
+    this.settingsPath = join(root, '.ptt', 'translation.json');
     if (translator.inner) {
       this.state = { status: 'ready', progress: 0, total: 0, providerId: PROVIDER_ID };
     }
   }
 
+  async init(): Promise<void> {
+    const stored = await readJsonFile<{ speed?: TranslationSpeed }>(this.settingsPath);
+    this.speed = clampSpeed(this.speedConfig, stored?.speed ?? this.speed);
+  }
+
+  concurrency(): number {
+    return concurrencyFor(this.speedConfig, this.speed);
+  }
+
+  async setSpeed(speed: TranslationSpeed): Promise<TranslationStatus> {
+    this.speed = clampSpeed(this.speedConfig, speed);
+    await writeJsonFile(this.settingsPath, { speed: this.speed });
+    return this.status();
+  }
+
   status(): TranslationStatus {
-    return { ...this.state, candidates: this.candidates };
+    return {
+      ...this.state,
+      candidates: this.candidates,
+      speed: this.speed,
+      speeds: this.speedConfig.options,
+      memoryGb: this.speedConfig.memoryGb,
+      maxConcurrency: this.speedConfig.maxConcurrency,
+    };
   }
 
   async refreshCandidates(): Promise<void> {
@@ -423,7 +465,7 @@ export class TranslationManager {
           '--alias',
           MODEL_ALIAS,
           '--parallel',
-          '3',
+          String(this.speedConfig.maxConcurrency),
         ],
       },
     });
@@ -436,7 +478,12 @@ export class TranslationManager {
     );
 
     this.active = template
-      ? new NativeTranslator(this.registry, true, (done, total) => this.updateProgress(done, total))
+      ? new NativeTranslator(
+          this.registry,
+          true,
+          (done, total) => this.updateProgress(done, total),
+          () => this.concurrency(),
+        )
       : new ProviderTranslator(this.registry, { providerId: PROVIDER_ID, model: MODEL_ALIAS });
   }
 

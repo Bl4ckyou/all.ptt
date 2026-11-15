@@ -194,6 +194,17 @@ export interface TranslationStatus {
   languages?: string[];
   candidates?: TranslationCandidate[];
   translating?: { done: number; total: number };
+  speed?: TranslationSpeed;
+  speeds?: SpeedOption[];
+  memoryGb?: number;
+  maxConcurrency?: number;
+}
+
+export type TranslationSpeed = 'normal' | 'fast' | 'hypersonic';
+
+export interface SpeedOption {
+  id: TranslationSpeed;
+  concurrency: number;
 }
 
 export interface TranslationCandidate {

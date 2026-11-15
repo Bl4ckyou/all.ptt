@@ -741,6 +741,17 @@ export function createManage(actions: Actions): Manage {
             el('div', { class: 'translation-path' }, [pathInput, enableButton]),
           ]);
 
+          const speedButtons = el('div', { class: 'segmented' });
+          const speedMeta = el('span', { class: 'translation-speed-meta muted' });
+          const speedRow = el('div', { class: 'translation-speed' }, [
+            el('span', {
+              class: 'translation-speed-label',
+              text: t('manage-translate-speed'),
+            }),
+            speedButtons,
+            speedMeta,
+          ]);
+
           const panel = el('section', { class: 'translation-panel' }, [
             el('div', { class: 'translation-head' }, [
               el('div', { class: 'translation-copy' }, [
@@ -760,6 +771,7 @@ export function createManage(actions: Actions): Manage {
               disableButton,
               translateStatus,
             ]),
+            speedRow,
             candidateList,
             more,
           ]);
@@ -821,6 +833,30 @@ export function createManage(actions: Actions): Manage {
                 );
               }
             }
+
+            speedButtons.replaceChildren();
+            for (const option of status.speeds ?? []) {
+              speedButtons.append(
+                el('button', {
+                  class: `segmented-option${option.id === status.speed ? ' active' : ''}`,
+                  text: `${t(`manage-translate-speed-${option.id}`)} (${option.concurrency})`,
+                  on: {
+                    click: () => {
+                      void actions
+                        .setTranslationSpeed(option.id)
+                        .then(renderTranslationStatus);
+                    },
+                  },
+                }),
+              );
+            }
+            speedRow.hidden = !status.speeds || status.speeds.length === 0;
+            speedMeta.textContent = status.memoryGb
+              ? t('manage-translate-memory', {
+                  gb: String(status.memoryGb),
+                  max: String(status.maxConcurrency ?? 1),
+                })
+              : '';
 
             translateButton.hidden = !ready;
             disableButton.hidden = !ready;

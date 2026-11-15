@@ -1637,3 +1637,19 @@ select.control {
 .advanced.raw-options {
   margin-top: 12px;
 }
+
+.translation-speed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.translation-speed-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.translation-speed-meta {
+  font-size: 11px;
+}

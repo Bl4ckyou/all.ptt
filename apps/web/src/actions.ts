@@ -6,6 +6,7 @@ import type {
   LocalModelInfo,
   ModelConfigInfo,
   ReleaseSummary,
+  TranslationSpeed,
   TranslationStatus,
   SettingValue,
 } from './types.js';
@@ -27,6 +28,7 @@ export interface Actions {
   downloadTranslation(): Promise<TranslationStatus>;
   enableTranslation(path: string): Promise<TranslationStatus>;
   disableTranslation(): Promise<TranslationStatus>;
+  setTranslationSpeed(speed: TranslationSpeed): Promise<TranslationStatus>;
   installBackend(id: string, variant: string): Promise<void>;
   updateBackends(): Promise<void>;
   pauseJob(): Promise<void>;

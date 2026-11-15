@@ -14,6 +14,7 @@ import type {
   ProjectMeta,
   ProviderSummary,
   ReleaseSummary,
+  TranslationSpeed,
   TranslationStatus,
   ResolvedSettingInfo,
   SettingValue,
@@ -381,6 +382,16 @@ export async function enableTranslation(path: string): Promise<TranslationStatus
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ path }),
   });
+  return (await response.json()) as TranslationStatus;
+}
+
+export async function setTranslationSpeed(speed: TranslationSpeed): Promise<TranslationStatus> {
+  const response = await fetch('/api/translation/speed', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ speed }),
+  });
+  if (!response.ok) throw new Error('failed to set translation speed');
   return (await response.json()) as TranslationStatus;
 }
 

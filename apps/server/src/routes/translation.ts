@@ -1,6 +1,7 @@
 import type { AppContext } from '../context.js';
 import { readJson, sendError, sendJson } from '../http.js';
 import type { Handler } from '../router.js';
+import type { TranslationSpeed } from '../translation-speed.js';
 
 export function translationStatusRoute(context: AppContext): Handler {
   return async ({ res }) => {
@@ -36,6 +37,29 @@ export function translationEnableRoute(context: AppContext): Handler {
 
     const status = await context.translationManager.enableWithModel(body.path);
     sendJson(res, status.status === 'ready' ? 200 : 400, status);
+  };
+}
+
+interface SpeedBody {
+  speed?: TranslationSpeed;
+}
+
+export function translationSpeedRoute(context: AppContext): Handler {
+  return async ({ req, res }) => {
+    let body: SpeedBody;
+    try {
+      body = await readJson<SpeedBody>(req);
+    } catch {
+      sendError(res, 400, 'error.bad_request');
+      return;
+    }
+
+    if (!body.speed) {
+      sendError(res, 400, 'error.bad_request');
+      return;
+    }
+
+    sendJson(res, 200, await context.translationManager.setSpeed(body.speed));
   };
 }
 
