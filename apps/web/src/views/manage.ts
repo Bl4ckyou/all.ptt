@@ -228,26 +228,29 @@ export function createManage(actions: Actions): Manage {
     });
   }
 
-  function filePicker(
-    setting: ResolvedSettingInfo,
-    current: SettingValue | undefined,
-  ): HTMLElement {
-    const pool: LocalModelInfo[] =
-      setting.fileKind === 'mmproj'
-        ? state.auxiliary.filter((file) => file.kind === 'mmproj')
-        : setting.fileKind === 'mtp'
-          ? state.drafts.filter((file) => (file.category ?? 'other') === 'mtp')
-          : [...state.drafts, ...state.localModels];
+  const categoryOf = (file: LocalModelInfo): string =>
+    file.category ?? draftCategory(file.name);
 
+  interface FilePickerOptions {
+    pool: LocalModelInfo[];
+    current?: SettingValue;
+    fileKind?: 'model' | 'mmproj' | 'mtp';
+    specTypes?: Record<string, string>;
+    excludePath?: string;
+    placeholder?: string;
+    onPick: (file: LocalModelInfo) => void;
+    onInput?: (value: string) => void;
+    onClear?: () => void;
+  }
+
+  function filePickerElement(options: FilePickerOptions): HTMLElement {
     const seenPaths = new Set<string>();
     const candidates: LocalModelInfo[] = [];
-    for (const file of pool) {
-      if (file.path === configModel?.path || seenPaths.has(file.path)) continue;
+    for (const file of options.pool) {
+      if (file.path === options.excludePath || seenPaths.has(file.path)) continue;
       seenPaths.add(file.path);
       candidates.push(file);
     }
-
-    const categoryOf = (file: LocalModelInfo): string => file.category ?? draftCategory(file.name);
 
     const CATEGORY_RANK: Record<string, number> = {
       assistant: 0,
@@ -260,30 +263,31 @@ export function createManage(actions: Actions): Manage {
       other: 1,
     };
 
-    const scored = candidates.map((file) => ({
-      file,
-      score:
-        setting.fileKind === 'mmproj'
-          ? mmprojMatchScore(file, configModel)
-          : draftMatchScore(file, configModel),
-    }));
+    const base = options.fileKind
+      ? candidates
+          .map((file) => ({
+            file,
+            score:
+              options.fileKind === 'mmproj'
+                ? mmprojMatchScore(file, configModel)
+                : draftMatchScore(file, configModel),
+          }))
+          .filter((entry) => entry.score > 0)
+          .sort(
+            (a, b) =>
+              b.score - a.score ||
+              (options.fileKind === 'model'
+                ? (CATEGORY_RANK[categoryOf(a.file)] ?? 1) -
+                  (CATEGORY_RANK[categoryOf(b.file)] ?? 1)
+                : 0) ||
+              a.file.name.localeCompare(b.file.name),
+          )
+          .map((entry) => entry.file)
+      : [...candidates].sort((a, b) => a.name.localeCompare(b.name));
 
-    const base = scored
-      .filter((entry) => entry.score > 0)
-      .sort(
-        (a, b) =>
-          b.score - a.score ||
-          (setting.fileKind === 'model'
-            ? (CATEGORY_RANK[categoryOf(a.file)] ?? 1) -
-              (CATEGORY_RANK[categoryOf(b.file)] ?? 1)
-            : 0) ||
-          a.file.name.localeCompare(b.file.name),
-      )
-      .map((entry) => entry.file);
-
-    const supportedCategories = Object.keys(configSpecTypes);
+    const supportedCategories = Object.keys(options.specTypes ?? {});
     const categories =
-      setting.fileKind === 'model'
+      options.fileKind === 'model'
         ? (
             ['assistant', 'dflash', 'dflash2', 'dspark', 'eagle3', 'lilicorr', 'mtp', 'other'] as const
           ).filter(
@@ -296,13 +300,15 @@ export function createManage(actions: Actions): Manage {
 
     const input = el('input', {
       class: 'control file-value',
-      value: current === undefined ? '' : String(current),
-      attrs: { type: 'text', placeholder: t('manage-path-placeholder') },
+      value: options.current === undefined ? '' : String(options.current),
+      attrs: {
+        type: 'text',
+        placeholder: options.placeholder ?? t('manage-path-placeholder'),
+      },
       on: {
         input: (event) => {
           const raw = (event.target as HTMLInputElement).value;
-          if (raw === '') delete configValues[setting.id];
-          else configValues[setting.id] = raw;
+          options.onInput?.(raw);
           refresh();
         },
       },
@@ -374,19 +380,11 @@ export function createManage(actions: Actions): Manage {
               class: 'file-option',
               attrs: { type: 'button' },
               on: {
-              click: () => {
-                configValues[setting.id] = file.path;
-                if (setting.fileKind === 'model') {
-                  const specType = configSpecTypes[categoryOf(file)];
-                  if (specType) {
-                    configValues['spec-type'] = specType;
-                    setSelectValue('spec-type', specType);
-                  }
-                }
-                input.value = file.path;
-                refresh();
-                refreshSettingsVisibility();
-              },
+                click: () => {
+                  options.onPick(file);
+                  input.value = file.path;
+                  refresh();
+                },
               },
             },
             [
@@ -398,20 +396,62 @@ export function createManage(actions: Actions): Manage {
       );
     }
 
-    const clear = iconButton('x', t('manage-config-clear'), () => {
-      delete configValues[setting.id];
-      input.value = '';
-      refresh();
-    });
+    const clear = options.onClear
+      ? iconButton('x', t('manage-config-clear'), () => {
+          options.onClear?.();
+          input.value = '';
+          refresh();
+        })
+      : null;
 
     renderTabs();
     refresh();
 
-    const nodes: Node[] = [el('div', { class: 'file-picker-row' }, [input, clear])];
+    const nodes: Node[] = [
+      el('div', { class: 'file-picker-row' }, clear ? [input, clear] : [input]),
+    ];
     if (categories.length >= 2) nodes.push(tabs);
     nodes.push(suggestions);
 
     return el('div', { class: 'file-picker' }, nodes);
+  }
+
+  function filePicker(
+    setting: ResolvedSettingInfo,
+    current: SettingValue | undefined,
+  ): HTMLElement {
+    const pool: LocalModelInfo[] =
+      setting.fileKind === 'mmproj'
+        ? state.auxiliary.filter((file) => file.kind === 'mmproj')
+        : setting.fileKind === 'mtp'
+          ? state.drafts.filter((file) => (file.category ?? 'other') === 'mtp')
+          : [...state.drafts, ...state.localModels];
+
+    return filePickerElement({
+      pool,
+      current,
+      fileKind: setting.fileKind,
+      specTypes: configSpecTypes,
+      excludePath: configModel?.path,
+      onPick: (file) => {
+        configValues[setting.id] = file.path;
+        if (setting.fileKind === 'model') {
+          const specType = configSpecTypes[categoryOf(file)];
+          if (specType) {
+            configValues['spec-type'] = specType;
+            setSelectValue('spec-type', specType);
+          }
+        }
+        refreshSettingsVisibility();
+      },
+      onInput: (raw) => {
+        if (raw === '') delete configValues[setting.id];
+        else configValues[setting.id] = raw;
+      },
+      onClear: () => {
+        delete configValues[setting.id];
+      },
+    });
   }
 
   function settingControl(setting: ResolvedSettingInfo): HTMLElement {
@@ -731,66 +771,13 @@ export function createManage(actions: Actions): Manage {
           }, [icon('play'), t('manage-translate-enable')]);
 
           const candidateList = el('div', { class: 'translation-candidates' });
-          const localSearch = el('input', {
-            class: 'control',
-            attrs: { placeholder: t('manage-translate-local-search') },
+          const translationPicker = filePickerElement({
+            pool: [...state.localModels, ...state.drafts],
+            placeholder: t('manage-translate-local-search'),
+            onPick: (file) => {
+              void actions.enableTranslation(file.path).then(renderTranslationStatus);
+            },
           });
-          const localList = el('div', { class: 'translation-candidates' });
-
-          function renderLocalModels(): void {
-            const term = localSearch.value.trim().toLowerCase();
-            const seen = new Set<string>();
-            const pool = [...state.localModels, ...state.drafts, ...state.auxiliary].filter(
-              (file) => {
-                if (seen.has(file.path)) return false;
-                seen.add(file.path);
-                return (
-                  term === '' ||
-                  file.name.toLowerCase().includes(term) ||
-                  file.path.toLowerCase().includes(term)
-                );
-              },
-            );
-
-            localList.replaceChildren();
-            if (pool.length === 0) {
-              localList.append(
-                el('p', { class: 'translation-hint muted', text: t('manage-no-results') }),
-              );
-              return;
-            }
-
-            for (const file of pool.slice(0, 20)) {
-              const quant = 'quantization' in file ? file.quantization : undefined;
-              localList.append(
-                el('div', { class: 'translation-candidate' }, [
-                  el('div', { class: 'translation-candidate-copy' }, [
-                    el('span', {
-                      class: 'translation-candidate-name',
-                      text: file.name,
-                    }),
-                    el('span', {
-                      class: 'translation-candidate-meta muted',
-                      text: [quant, shortPath(file.path)].filter(Boolean).join(' · '),
-                    }),
-                  ]),
-                  el('button', {
-                    class: 'button',
-                    on: {
-                      click: () => {
-                        void actions
-                          .enableTranslation(file.path)
-                          .then(renderTranslationStatus);
-                      },
-                    },
-                  }, [icon('play'), t('manage-translate-enable')]),
-                ]),
-              );
-            }
-          }
-
-          localSearch.addEventListener('input', renderLocalModels);
-          renderLocalModels();
 
           const plamoHint = el('p', {
             class: 'translation-hint muted',
@@ -802,8 +789,7 @@ export function createManage(actions: Actions): Manage {
               class: 'translation-hint muted',
               text: t('manage-translate-scan'),
             }),
-            localSearch,
-            localList,
+            translationPicker,
             el('details', { class: 'translation-manual' }, [
               el('summary', { text: t('manage-translate-manual') }),
               el('div', { class: 'translation-path' }, [pathInput, enableButton]),
