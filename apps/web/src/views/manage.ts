@@ -634,7 +634,11 @@ export function createManage(actions: Actions): Manage {
               },
             },
           });
-          const translateStatus = el('span', { class: 'manage-line muted' });
+          const statusBadge = el('span', {
+            class: 'translation-badge',
+            text: t('manage-translate-off'),
+          });
+          const translateStatus = el('span', { class: 'translation-message muted' });
           const translateButton = el('button', {
             class: 'button',
             on: {
@@ -709,13 +713,38 @@ export function createManage(actions: Actions): Manage {
             },
           }, [icon('play'), t('manage-translate-enable')]);
 
-          const candidateList = el('div', {});
-          const setup = el('div', {}, [
-            el('p', { class: 'manage-line muted', text: t('manage-translate-desc') }),
+          const candidateList = el('div', { class: 'translation-candidates' });
+          const more = el('details', { class: 'translation-more' }, [
+            el('summary', { text: t('manage-translate-other') }),
+            el('p', {
+              class: 'translation-hint muted',
+              text: t('manage-translate-recommended'),
+            }),
+            el('div', { class: 'translation-actions' }, [downloadButton]),
+            el('div', { class: 'translation-path' }, [pathInput, enableButton]),
+          ]);
+
+          const panel = el('section', { class: 'translation-panel' }, [
+            el('div', { class: 'translation-head' }, [
+              el('div', { class: 'translation-copy' }, [
+                el('span', {
+                  class: 'translation-title',
+                  text: t('manage-translate-title'),
+                }),
+                el('p', {
+                  class: 'translation-desc',
+                  text: t('manage-translate-desc'),
+                }),
+              ]),
+              statusBadge,
+            ]),
+            el('div', { class: 'translation-actions' }, [
+              translateButton,
+              disableButton,
+              translateStatus,
+            ]),
             candidateList,
-            el('p', { class: 'manage-line muted', text: t('manage-translate-or-download') }),
-            el('div', { class: 'manage-actions' }, [downloadButton]),
-            el('div', { class: 'manage-actions' }, [pathInput, enableButton]),
+            more,
           ]);
 
           let poll: number | null = null;
@@ -727,7 +756,7 @@ export function createManage(actions: Actions): Manage {
             }
             if (active && poll === null) {
               poll = window.setInterval(() => {
-                if (!setup.isConnected) {
+                if (!panel.isConnected) {
                   if (poll !== null) window.clearInterval(poll);
                   poll = null;
                   return;
@@ -738,17 +767,29 @@ export function createManage(actions: Actions): Manage {
 
             const ready = status.status === 'ready';
             candidateList.replaceChildren();
-            if (!ready && status.candidates && status.candidates.length > 0) {
+            candidateList.hidden = ready || active;
+            if (!ready && !active && status.candidates && status.candidates.length > 0) {
               candidateList.append(
-                el('p', { class: 'manage-line muted', text: t('manage-translate-found') }),
+                el('p', {
+                  class: 'translation-hint muted',
+                  text: t('manage-translate-found'),
+                }),
               );
               for (const candidate of status.candidates) {
                 candidateList.append(
-                  el('div', { class: 'manage-actions' }, [
-                    el('span', {
-                      class: 'manage-line',
-                      text: `${candidate.name}${candidate.quant ? ` (${candidate.quant})` : ''}`,
-                    }),
+                  el('div', { class: 'translation-candidate' }, [
+                    el('div', { class: 'translation-candidate-copy' }, [
+                      el('span', {
+                        class: 'translation-candidate-name',
+                        text: candidate.name,
+                      }),
+                      el('span', {
+                        class: 'translation-candidate-meta muted',
+                        text: [candidate.quant, candidate.targetLang ? 'target_lang' : null]
+                          .filter(Boolean)
+                          .join(' · '),
+                      }),
+                    ]),
                     el('button', {
                       class: 'button',
                       on: {
@@ -763,13 +804,17 @@ export function createManage(actions: Actions): Manage {
                 );
               }
             }
-            setup.hidden = ready;
-            translateButton.disabled = !ready;
+
+            translateButton.hidden = !ready;
             disableButton.hidden = !ready;
+            translateButton.disabled = !ready;
             downloadButton.disabled = active;
             enableButton.disabled = active;
 
+            statusBadge.className = 'translation-badge';
             if (ready) {
+              statusBadge.textContent = t('manage-translate-ready-badge');
+              statusBadge.classList.add('ready');
               translateStatus.textContent = status.model
                 ? t('manage-translate-ready', {
                     model: status.model.name,
@@ -777,17 +822,23 @@ export function createManage(actions: Actions): Manage {
                   })
                 : t('manage-translate-ready', { model: 'provider', quant: '' });
             } else if (status.status === 'downloading') {
-              const percent = status.total
-                ? Math.round((status.progress / status.total) * 100)
-                : 0;
-              translateStatus.textContent = t('manage-translate-progress', {
-                percent: String(percent),
-              });
+              statusBadge.textContent = t('manage-translate-downloading-badge');
+              statusBadge.classList.add('busy');
+              translateStatus.textContent = status.total
+                ? t('manage-translate-progress', {
+                    percent: String(Math.round((status.progress / status.total) * 100)),
+                  })
+                : '';
             } else if (status.status === 'starting') {
+              statusBadge.textContent = t('manage-translate-starting-badge');
+              statusBadge.classList.add('busy');
               translateStatus.textContent = t('manage-translate-starting');
             } else if (status.status === 'error') {
+              statusBadge.textContent = t('manage-translate-error-badge');
+              statusBadge.classList.add('error');
               translateStatus.textContent = status.error ?? t('manage-translate-error');
             } else {
+              statusBadge.textContent = t('manage-translate-off');
               translateStatus.textContent = '';
             }
           }
@@ -800,13 +851,8 @@ export function createManage(actions: Actions): Manage {
                 icon('manage', 'icon small'),
                 t('manage-raw-options'),
               ]),
-              el('div', { class: 'manage-actions' }, [
-                translateButton,
-                disableButton,
-                translateStatus,
-              ]),
-              setup,
-              searchInput,
+              panel,
+              el('div', { class: 'raw-search' }, [searchInput]),
               groups,
             ]),
           );
