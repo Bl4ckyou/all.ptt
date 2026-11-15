@@ -32,6 +32,7 @@
     "pretypecheck": "npm run assets",
     "typecheck": "tsc --noEmit",
     "check:i18n": "node scripts/check-i18n.mjs",
+    "sync:gguf-types": "node scripts/sync-gguf-types.mjs",
     "check": "npm run typecheck && npm run check:i18n && npm run test"
   },
   "devDependencies": {

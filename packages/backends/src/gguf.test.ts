@@ -193,6 +193,10 @@ describe('quantizationOf', () => {
     expect(quantizationOf('model.gguf', sig({ fileType: 15 }))).toBe('Q4_K_M');
   });
 
+  it('keeps unknown file types visible instead of dropping them', () => {
+    expect(quantizationOf('model.gguf', sig({ fileType: 99 }))).toBe('FTYPE_99');
+  });
+
   it('returns null when nothing is known', () => {
     expect(quantizationOf('model.gguf', sig({ fileType: null }))).toBeNull();
   });

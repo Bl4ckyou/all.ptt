@@ -1,5 +1,6 @@
 import { open, stat, type FileHandle } from 'node:fs/promises';
 import type { GgufModelInfo } from '@ptt/core';
+import { FILE_TYPE_NAMES } from './file-types.generated.js';
 
 const MAGIC = 0x46554747;
 const CHUNK_SIZE = 256 * 1024;
@@ -327,55 +328,13 @@ function wordMatch(text: string, word: string): boolean {
   return new RegExp(`(^|[-_. ])${word}([-_. ]|$)`, 'i').test(text);
 }
 
-const FILE_TYPE_QUANT: Record<number, string> = {
-  0: 'F32',
-  1: 'F16',
-  2: 'Q4_0',
-  3: 'Q4_1',
-  7: 'Q8_0',
-  8: 'Q5_0',
-  9: 'Q5_1',
-  10: 'Q2_K',
-  11: 'Q3_K_S',
-  12: 'Q3_K_M',
-  13: 'Q3_K_L',
-  14: 'Q4_K_S',
-  15: 'Q4_K_M',
-  16: 'Q5_K_S',
-  17: 'Q5_K_M',
-  18: 'Q6_K',
-  19: 'IQ2_XXS',
-  20: 'IQ2_XS',
-  21: 'Q2_K_S',
-  22: 'IQ3_XS',
-  23: 'IQ3_XXS',
-  24: 'IQ1_S',
-  25: 'IQ4_NL',
-  26: 'IQ3_S',
-  27: 'IQ3_M',
-  28: 'IQ2_S',
-  29: 'IQ2_M',
-  30: 'IQ4_XS',
-  31: 'IQ1_M',
-  32: 'BF16',
-  33: 'Q4_0_4_4',
-  34: 'Q4_0_4_8',
-  35: 'Q4_0_8_8',
-  36: 'TQ1_0',
-  37: 'TQ2_0',
-  38: 'MXFP4_MOE',
-  39: 'NVFP4',
-  40: 'Q1_0',
-  41: 'Q2_0',
-  42: 'F8_E4M3',
-};
-
 const QUANT_IN_NAME = /(?<![A-Z0-9])(I?P?T?Q\d+(?:_[A-Z0-9]+)*|BF16|F16|F32|FP16|FP32)(?![A-Z0-9])/gi;
 
 // Read the quantization from metadata first, then from the file name.
 export function quantizationOf(fileName: string, signature: GgufSignature | null): string | null {
+  const fileType = signature?.fileType;
   const fromMetadata =
-    signature?.fileType != null ? (FILE_TYPE_QUANT[signature.fileType] ?? null) : null;
+    fileType != null ? (FILE_TYPE_NAMES[fileType] ?? `FTYPE_${fileType}`) : null;
   const fromName = fileName
     .replace(/\.gguf$/i, '')
     .match(QUANT_IN_NAME)
