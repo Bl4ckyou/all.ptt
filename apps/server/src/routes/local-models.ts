@@ -8,10 +8,11 @@ import type { Handler } from '../router.js';
 import { isGgufPath, isWithin } from '../validation.js';
 
 export function localModelsRoute(context: AppContext): Handler {
-  return async ({ res }) => {
+  return async ({ url, res }) => {
     await refreshQuantTypes(context.root);
+    const force = url.searchParams.get('refresh') === '1';
     const [files, directories] = await Promise.all([
-      scanLocalFiles(context.modelDirs),
+      scanLocalFiles(context.modelDirs, { force }),
       listModelDirectories(context.modelDirs),
     ]);
     sendJson(res, 200, {

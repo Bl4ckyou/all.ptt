@@ -100,13 +100,13 @@ export const pauseJob = (id: string): Promise<JobInfo> => jobAction(id, 'pause')
 export const resumeJob = (id: string): Promise<JobInfo> => jobAction(id, 'resume');
 export const cancelJob = (id: string): Promise<JobInfo> => jobAction(id, 'cancel');
 
-export async function getLocalModels(): Promise<{
+export async function getLocalModels(refresh = false): Promise<{
   models: LocalModelInfo[];
   drafts: LocalModelInfo[];
   auxiliary: AuxiliaryFile[];
   directories: string[];
 }> {
-  const response = await fetch('/api/models/local');
+  const response = await fetch(`/api/models/local${refresh ? '?refresh=1' : ''}`);
   if (!response.ok) throw new Error('failed to scan models');
   return (await response.json()) as {
     models: LocalModelInfo[];

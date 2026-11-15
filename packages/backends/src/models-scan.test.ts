@@ -66,6 +66,25 @@ afterEach(async () => {
 });
 
 describe('scanLocalFiles', () => {
+  it('serves cached results unless a refresh is forced', async () => {
+    const root = await workspace();
+    process.env.HF_HUB_CACHE = join(root, 'hub');
+    await mkdir(process.env.HF_HUB_CACHE, { recursive: true });
+
+    const models = join(root, 'models');
+    await mkdir(models, { recursive: true });
+    await writeFile(join(models, 'first.gguf'), gguf(true));
+
+    setModelScanIndex(join(root, 'scan.json'));
+    clearModelScanCache();
+
+    expect((await scanLocalFiles([models])).models).toHaveLength(1);
+    await writeFile(join(models, 'second.gguf'), gguf(true));
+
+    expect((await scanLocalFiles([models])).models).toHaveLength(1);
+    expect((await scanLocalFiles([models], { force: true })).models).toHaveLength(2);
+  });
+
   it.skipIf(process.platform === 'win32')(
     'follows symlinked model directories and indexes ignored GGUFs',
     async () => {

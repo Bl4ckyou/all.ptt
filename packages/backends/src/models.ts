@@ -275,22 +275,29 @@ async function performScan(extraDirs: string[]): Promise<LocalFiles> {
   return { models, drafts, auxiliary };
 }
 
+const SCAN_TTL_MS = 10 * 60_000;
+
 // Scan the Hugging Face cache and extra directories once, classifying files.
 // Cached results are returned immediately while a refresh runs in the background.
-export async function scanLocalFiles(extraDirs: string[] = []): Promise<LocalFiles> {
+export async function scanLocalFiles(
+  extraDirs: string[] = [],
+  options: { force?: boolean } = {},
+): Promise<LocalFiles> {
   const key = JSON.stringify(extraDirs);
-  if (scanCache && scanCache.key === key && scanCache.expires > Date.now()) {
+  if (!options.force && scanCache && scanCache.key === key && scanCache.expires > Date.now()) {
     return scanCache.value;
   }
 
   if (inflightScan && inflightScan.key === key) {
-    return scanCache && scanCache.key === key ? scanCache.value : inflightScan.promise;
+    return !options.force && scanCache && scanCache.key === key
+      ? scanCache.value
+      : inflightScan.promise;
   }
 
   let promise: Promise<LocalFiles>;
   promise = performScan(extraDirs)
     .then((value) => {
-      scanCache = { key, expires: Date.now() + 60_000, value };
+      scanCache = { key, expires: Date.now() + SCAN_TTL_MS, value };
       return value;
     })
     .finally(() => {
@@ -299,7 +306,7 @@ export async function scanLocalFiles(extraDirs: string[] = []): Promise<LocalFil
   inflightScan = { key, promise };
 
   // Stale-while-revalidate: never make the UI wait for a re-scan.
-  if (scanCache && scanCache.key === key) return scanCache.value;
+  if (!options.force && scanCache && scanCache.key === key) return scanCache.value;
   return promise;
 }
 

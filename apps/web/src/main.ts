@@ -312,11 +312,11 @@ async function restartProjectAction(): Promise<void> {
   }
 }
 
-async function scanModels(): Promise<void> {
+async function scanModels(force = false): Promise<void> {
   state.busy = 'status-scanning';
   notify();
   try {
-    const scan = await getLocalModels();
+    const scan = await getLocalModels(force);
     state.localModels = scan.models;
     state.drafts = scan.drafts;
     state.auxiliary = scan.auxiliary;
@@ -639,7 +639,7 @@ const actions: Actions = {
   selectConversation: selectConversationAction,
   saveNotes: saveNotesAction,
   openNotes: openNotesAction,
-  scanModels,
+  scanModels: () => scanModels(true),
   revealPath: revealPathAction,
   getBackendSettings: getBackendSettingsAction,
   getModelConfig: getModelConfigAction,
