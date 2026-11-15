@@ -149,6 +149,7 @@ manage-translate-starting-badge = 起動中
 manage-translate-other = 他のモデル
 manage-translate-local-search = ローカル GGUF を検索
 manage-translate-scan = このコンピューターで検出された GGUF モデル
+manage-translate-native = 翻訳テンプレート
 manage-translate-manual = 手動パス
 manage-translate-recommended = 推奨: PLaMo 3 Translate 0.8B (53 言語、約 0.6 GB)。
 manage-translate-found = Hugging Face キャッシュで見つかりました:

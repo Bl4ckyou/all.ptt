@@ -101,6 +101,7 @@ export interface LocalModelInfo {
   contextLength?: number | null;
   quantization?: string | null;
   hasMtp?: boolean;
+  chatTemplate?: string | null;
 }
 
 export interface AuxiliaryFile extends LocalModelInfo {

@@ -102,6 +102,18 @@ describe('findTranslationModel', () => {
     expect(candidates.find((candidate) => candidate.path === file)?.targetLang).toBe(true);
   });
 
+  it('detects translation capability from the GGUF chat template', async () => {
+    const emptyHub = await workspace();
+    process.env.HF_HUB_CACHE = emptyHub;
+    const models = await workspace();
+    const file = join(models, 'custom-model-Q4_K_M.gguf');
+    await writeFile(file, gguf('Custom translator'));
+
+    const candidates = await findTranslationCandidates([models]);
+    expect(candidates.map((candidate) => candidate.path)).toContain(file);
+    expect(candidates.find((candidate) => candidate.path === file)?.targetLang).toBe(true);
+  });
+
   it('returns null when nothing is found', async () => {
     const emptyHub = await workspace();
     process.env.HF_HUB_CACHE = emptyHub;

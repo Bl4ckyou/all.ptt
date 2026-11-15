@@ -771,8 +771,20 @@ export function createManage(actions: Actions): Manage {
           }, [icon('play'), t('manage-translate-enable')]);
 
           const candidateList = el('div', { class: 'translation-candidates' });
+          const translationPool = [...state.localModels, ...state.drafts]
+            .filter(
+              (file) =>
+                /target_lang/.test(file.chatTemplate ?? '') ||
+                /(translat|plamo)/i.test(file.path),
+            )
+            .sort(
+              (a, b) =>
+                Number(/target_lang/.test(b.chatTemplate ?? '')) -
+                Number(/target_lang/.test(a.chatTemplate ?? '')),
+            );
+
           const translationPicker = filePickerElement({
-            pool: [...state.localModels, ...state.drafts],
+            pool: translationPool,
             placeholder: t('manage-translate-local-search'),
             onPick: (file) => {
               void actions.enableTranslation(file.path).then(renderTranslationStatus);
@@ -871,7 +883,10 @@ export function createManage(actions: Actions): Manage {
                       }),
                       el('span', {
                         class: 'translation-candidate-meta muted',
-                        text: [candidate.quant, candidate.targetLang ? 'target_lang' : null]
+                        text: [
+                          candidate.quant,
+                          candidate.targetLang ? t('manage-translate-native') : null,
+                        ]
                           .filter(Boolean)
                           .join(' · '),
                       }),

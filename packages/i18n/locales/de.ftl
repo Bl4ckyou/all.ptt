@@ -149,6 +149,7 @@ manage-translate-starting-badge = Startet
 manage-translate-other = Andere Modelle
 manage-translate-local-search = Lokales GGUF suchen
 manage-translate-scan = Auf diesem Rechner gefundene GGUF-Modelle
+manage-translate-native = Übersetzungs-Template
 manage-translate-manual = Manueller Pfad
 manage-translate-recommended = Empfohlen: PLaMo 3 Translate 0.8B (53 Sprachen, ~0,6 GB).
 manage-translate-found = Im Hugging-Face-Cache gefunden:

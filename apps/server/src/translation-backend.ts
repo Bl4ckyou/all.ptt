@@ -153,17 +153,21 @@ export async function findTranslationCandidates(
 ): Promise<TranslationCandidate[]> {
   const files = await scanLocalFiles(directories);
   const all = [...files.models, ...files.drafts, ...files.auxiliary];
-  const matched = all.filter((file) => /(translat|plamo)/i.test(file.path));
+  const supportsTranslation = (chatTemplate?: string | null): boolean =>
+    /target_lang/.test(chatTemplate ?? '');
+  const matched = all.filter(
+    (file) => supportsTranslation(file.chatTemplate) || /(translat|plamo)/i.test(file.path),
+  );
 
-  const rank = (path: string): number => {
-    const value = path.toLowerCase();
-    let score = 0;
+  const rank = (file: (typeof all)[number]): number => {
+    const value = file.path.toLowerCase();
+    let score = supportsTranslation(file.chatTemplate) ? -6 : 0;
     if (value.includes('plamo')) score -= 4;
     if (value.includes('q4_k_m')) score -= 2;
     if (value.includes('translategemma')) score -= 1;
     return score;
   };
-  matched.sort((a, b) => rank(a.path) - rank(b.path));
+  matched.sort((a, b) => rank(a) - rank(b));
 
   return matched.slice(0, 8).map((file) => ({
     path: file.path,
