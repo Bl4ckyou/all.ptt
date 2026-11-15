@@ -1,10 +1,10 @@
 import { dirname, isAbsolute } from 'node:path';
 import { stat } from 'node:fs/promises';
-import { listModelDirectories, revealPath, scanLocalFiles } from '@ptt/backends';
+import { listModelDirectories, readGgufInfo, revealPath, scanLocalFiles } from '@ptt/backends';
 import type { AppContext } from '../context.js';
 import { readJson, sendError, sendJson } from '../http.js';
 import type { Handler } from '../router.js';
-import { isWithin } from '../validation.js';
+import { isGgufPath, isWithin } from '../validation.js';
 
 export function localModelsRoute(context: AppContext): Handler {
   return async ({ res }) => {
@@ -18,6 +18,29 @@ export function localModelsRoute(context: AppContext): Handler {
       auxiliary: files.auxiliary,
       directories,
     });
+  };
+}
+
+export function modelInfoRoute(context: AppContext): Handler {
+  return async ({ url, res }) => {
+    const path = url.searchParams.get('path');
+    if (!isGgufPath(path)) {
+      sendError(res, 400, 'error.bad_request');
+      return;
+    }
+
+    const allowed = await listModelDirectories(context.modelDirs);
+    if (!allowed.some((base) => isWithin(dirname(path), base))) {
+      sendError(res, 403, 'error.forbidden');
+      return;
+    }
+
+    try {
+      const info = await readGgufInfo(path);
+      sendJson(res, 200, { info });
+    } catch (error) {
+      sendJson(res, 500, { error: 'error.gguf', message: (error as Error).message });
+    }
   };
 }
 
