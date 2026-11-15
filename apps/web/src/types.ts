@@ -31,6 +31,7 @@ export interface InstalledBackendInfo {
 export interface BackendInfo {
   id: string;
   label: string;
+  shortLabel: string;
   repo: string;
   defaultVariant: string;
   variants: string[];
@@ -43,6 +44,10 @@ export interface RunningBackendInfo {
   port: number;
   modelPath: string;
   startedAt: string;
+}
+
+export interface BackendLatestInfo {
+  latest: Record<string, Record<string, string>>;
 }
 
 export interface BackendsInfo {
@@ -70,6 +75,7 @@ export interface LocalModelInfo {
   blockCount?: number | null;
   embeddingLength?: number | null;
   contextLength?: number | null;
+  quantization?: string | null;
   hasMtp?: boolean;
 }
 

@@ -2,6 +2,7 @@ import { detectLocale } from '@ptt/i18n';
 import type { GgufModelInfo } from '@ptt/core';
 import type { Actions } from './actions.js';
 import {
+  getBackendLatest,
   getBackendSettings,
   getBackends,
   getLocales,
@@ -81,6 +82,23 @@ async function refreshBackends(): Promise<void> {
     // backend panel is optional; keep the UI usable
   }
   notify();
+  void checkBackendUpdates();
+}
+
+let checkingUpdates = false;
+
+async function checkBackendUpdates(): Promise<void> {
+  if (checkingUpdates) return;
+  checkingUpdates = true;
+  try {
+    const { latest } = await getBackendLatest();
+    state.backendLatest = latest;
+  } catch {
+    // update check is informative only
+  } finally {
+    checkingUpdates = false;
+    notify();
+  }
 }
 
 async function setLocale(locale: string): Promise<void> {

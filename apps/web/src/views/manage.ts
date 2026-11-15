@@ -96,10 +96,14 @@ export function createManage(actions: Actions): Manage {
     );
   }
 
-  function installedBackends(): { id: string; label: string }[] {
+  function installedBackends(): { id: string; label: string; shortLabel: string }[] {
     return state.backends
       .filter((backend) => backend.installed.length > 0)
-      .map((backend) => ({ id: backend.id, label: backend.label }));
+      .map((backend) => ({
+        id: backend.id,
+        label: backend.label,
+        shortLabel: backend.shortLabel,
+      }));
   }
 
   function dependsOnSatisfied(
@@ -155,17 +159,33 @@ export function createManage(actions: Actions): Manage {
       backend.variants.map((variant) => option(variant, variantLabel(variant), variant === choice)),
     );
 
+    const current = backend.installed.find((entry) => entry.variant === choice);
+    const latestTag = current ? state.backendLatest[backend.id]?.[current.target] : undefined;
+    const upToDate = Boolean(current && latestTag && latestTag === current.tag);
+    const updateTag = current && latestTag && latestTag !== current.tag ? latestTag : null;
+
     const action = button(
-      installed ? 'refresh' : 'download',
-      installed ? t('manage-update') : t('manage-install'),
+      current ? 'refresh' : 'download',
+      upToDate ? t('backend-up-to-date') : current ? t('manage-update') : t('manage-install'),
       () => void actions.installBackend(backend.id, choice),
     );
+    action.disabled = upToDate;
 
     const status = installed
-      ? el('p', {
-          class: 'manage-line muted',
-          text: backend.installed.map((entry) => `${entry.variant} · ${entry.tag}`).join(', '),
-        })
+      ? el('div', { class: 'backend-status' }, [
+          el('span', {
+            class: 'manage-line muted',
+            text: backend.installed.map((entry) => `${entry.variant} · ${entry.tag}`).join(', '),
+          }),
+          upToDate
+            ? el('span', { class: 'status-pill good', text: t('backend-up-to-date') })
+            : updateTag
+              ? el('span', {
+                  class: 'status-pill update',
+                  text: t('backend-update-available', { tag: updateTag }),
+                })
+              : el('span'),
+        ])
       : el('p', { class: 'manage-line muted', text: t('manage-not-installed') });
 
     return el('div', { class: 'backend-card' }, [
@@ -790,8 +810,20 @@ export function createManage(actions: Actions): Manage {
     const favorite = favorites.has(model.path);
 
     return el('div', { class: 'model-card' }, [
-      el('div', { class: 'model-card-top' }, [
-        el('span', { class: 'model-name' }, [icon('model', 'icon small'), model.name]),
+      el('div', { class: 'model-card-head' }, [
+        el('span', { class: 'model-name', attrs: { title: model.path } }, [
+          icon('model', 'icon small'),
+          model.name,
+        ]),
+        ...(model.quantization
+          ? [el('span', { class: 'model-quant', text: model.quantization })]
+          : []),
+      ]),
+      el('span', { class: 'manage-line muted', text: formatBytes(model.size) }),
+      el('div', { class: 'model-card-actions' }, [
+        button('play', t('manage-launch'), () => {
+          if (launchBackend) void actions.launchModel(model, launchBackend);
+        }),
         el('div', { class: 'model-actions' }, [
           iconButton(
             favorite ? 'starFilled' : 'star',
@@ -808,10 +840,6 @@ export function createManage(actions: Actions): Manage {
           iconButton('folderOpen', t('manage-open-folder'), () => void actions.revealPath(model.path)),
         ]),
       ]),
-      el('span', { class: 'manage-line muted', text: formatBytes(model.size) }),
-      button('play', t('manage-launch'), () => {
-        if (launchBackend) void actions.launchModel(model, launchBackend);
-      }),
     ]);
   }
 
@@ -844,18 +872,29 @@ export function createManage(actions: Actions): Manage {
       launchBackend = installed[0]?.id ?? null;
     }
 
-    const backendSelect = el(
-      'select',
-      {
-        class: 'control',
-        on: {
-          change: (event) => {
-            launchBackend = (event.target as HTMLSelectElement).value;
-          },
-        },
-      },
-      installed.map((backend) => option(backend.id, backend.label, backend.id === launchBackend)),
-    );
+    const backendSwitch =
+      installed.length > 0
+        ? el(
+            'div',
+            { class: 'segmented', attrs: { role: 'group', 'aria-label': t('manage-launch-with') } },
+            installed.map((backend) =>
+              el(
+                'button',
+                {
+                  class: `segmented-option${backend.id === launchBackend ? ' active' : ''}`,
+                  attrs: { type: 'button', title: backend.label },
+                  on: {
+                    click: () => {
+                      launchBackend = backend.id;
+                      update();
+                    },
+                  },
+                },
+                [backend.shortLabel],
+              ),
+            ),
+          )
+        : null;
 
     const tools: Node[] = [];
     const openDirectory = state.modelDirs[0];
@@ -918,18 +957,12 @@ export function createManage(actions: Actions): Manage {
         el('div', { class: 'model-tools' }, [
           el('label', { class: 'search' }, [icon('search', 'icon small'), searchInput]),
           sortSelect,
+          ...(backendSwitch ? [backendSwitch] : []),
         ]),
       );
     }
 
-    if (installed.length > 0) {
-      nodes.push(
-        el('label', { class: 'field' }, [
-          el('span', { class: 'field-label' }, [icon('play', 'icon small'), t('manage-launch-with')]),
-          backendSelect,
-        ]),
-      );
-    } else {
+    if (installed.length === 0) {
       nodes.push(el('p', { class: 'manage-line muted', text: t('manage-not-installed') }));
     }
 
@@ -958,7 +991,7 @@ export function createManage(actions: Actions): Manage {
       ]),
     );
 
-    return el('div', { class: 'manage-card' }, [
+    return el('div', { class: `manage-card${rows.length > 0 ? ' running-card' : ''}` }, [
       el('h3', { class: 'manage-title' }, [icon('server', 'icon small'), t('manage-running')]),
       rows.length === 0
         ? el('p', { class: 'manage-line muted', text: t('manage-none-running') })
@@ -994,6 +1027,7 @@ export function createManage(actions: Actions): Manage {
     }
 
     nodes.push(hardwareCard());
+    nodes.push(runningCard());
     nodes.push(
       el('div', { class: 'manage-card' }, [
         el('h3', { class: 'manage-title' }, [icon('server', 'icon small'), t('backends-title')]),
@@ -1001,7 +1035,6 @@ export function createManage(actions: Actions): Manage {
       ]),
     );
     nodes.push(modelsCard());
-    nodes.push(runningCard());
 
     element.replaceChildren(...nodes);
 

@@ -1,7 +1,13 @@
 import { realpath, readdir, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { classifyGguf, readGgufSignature, type GgufCategory } from './gguf.js';
+import {
+  classifyGguf,
+  isTextModel,
+  quantizationOf,
+  readGgufSignature,
+  type GgufCategory,
+} from './gguf.js';
 
 export type GgufKind = 'model' | 'mmproj' | 'mtp' | 'other';
 
@@ -15,6 +21,7 @@ export interface LocalModel {
   blockCount?: number | null;
   embeddingLength?: number | null;
   contextLength?: number | null;
+  quantization?: string | null;
   hasMtp?: boolean;
 }
 
@@ -105,6 +112,9 @@ async function collect(
             ? 'draft'
             : 'model';
 
+      // Skip diffusion and other non-text GGUF files: they have no tokenizer.
+      if (kind === 'model' && !isTextModel(signature)) continue;
+
       files.push({
         path: full,
         name: entry.name.replace(/\.gguf$/i, ''),
@@ -115,6 +125,7 @@ async function collect(
         blockCount: signature?.blockCount ?? null,
         embeddingLength: signature?.embeddingLength ?? null,
         contextLength: signature?.contextLength ?? null,
+        quantization: quantizationOf(entry.name, signature),
         hasMtp: signature?.hasMtp ?? false,
         ...(kind === 'draft' ? { category: classification.category } : {}),
       });

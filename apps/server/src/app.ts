@@ -1,6 +1,7 @@
 import type { AppContext } from './context.js';
 import { Router } from './router.js';
 import {
+  backendLatestRoute,
   backendSettingsRoute,
   backendsRoute,
   cancelJobRoute,
@@ -50,6 +51,7 @@ export function createApp(context: AppContext): Router {
     .get('/api/i18n', i18nLocalesRoute)
     .get('/api/i18n/:locale', i18nCatalogRoute)
     .get('/api/backends', backendsRoute(context))
+    .get('/api/backends/latest', backendLatestRoute(context))
     .get('/api/backends/settings', backendSettingsRoute(context))
     .post('/api/backends/install', installBackendRoute(context))
     .post('/api/backends/update', updateBackendsRoute(context))

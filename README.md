@@ -142,7 +142,9 @@ all.ptt scans the Hugging Face cache (`~/.cache/huggingface/hub` by default) and
 any folders listed in `modelDirs`. Files are classified from GGUF metadata
 (`general.architecture`, `general.type`, `general.tags`) and matched to the
 selected model by base architecture and context length. An E2B model therefore
-offers E2B MTP files, not a 26B one.
+offers E2B MTP files, not a 26B one. Diffusion and other non-text GGUF files are
+ignored because they carry no tokenizer. Each card shows the full file name and
+the quantization read from metadata or the file name.
 
 Settings are discovered from the installed binary's `--help`, so renamed flags
 or new versions are handled automatically. The panel exposes:

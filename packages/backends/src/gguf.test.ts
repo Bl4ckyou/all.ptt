@@ -2,7 +2,13 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { classifyGguf, readGgufInfo, readGgufSignature } from './gguf.js';
+import {
+  classifyGguf,
+  isTextModel,
+  quantizationOf,
+  readGgufInfo,
+  readGgufSignature,
+} from './gguf.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -48,6 +54,7 @@ function buildGguf(): Buffer {
     entry('general.name', 8, ggufString('Test Model')),
     entry('general.basename', 8, ggufString('test-baseline')),
     entry('general.tags', 9, tags),
+    entry('general.file_type', 4, u32(15)),
     entry('llama.block_count', 4, u32(32)),
     entry('llama.embedding_length', 4, u32(4096)),
     entry('llama.attention.head_count', 4, u32(32)),
@@ -113,24 +120,56 @@ describe('readGgufSignature', () => {
     expect(signature.blockCount).toBe(32);
     expect(signature.embeddingLength).toBe(4096);
     expect(signature.contextLength).toBe(8192);
+    expect(signature.fileType).toBe(15);
+    expect(signature.hasTokenizer).toBe(true);
     expect(signature.hasMtp).toBe(true);
   });
 });
 
-describe('classifyGguf', () => {
-  const sig = (partial: Partial<import('./gguf.js').GgufSignature>) => ({
-    architecture: null,
-    generalType: null,
-    name: null,
-    basename: null,
-    tags: [],
-    blockCount: null,
-    embeddingLength: null,
-    contextLength: null,
-    hasMtp: false,
-    ...partial,
+describe('quantizationOf', () => {
+  it('uses metadata when the name contains the same quantization', () => {
+    expect(quantizationOf('Qwen3-4B-IQ4_XS.gguf', sig({ fileType: 30 }))).toBe('IQ4_XS');
   });
 
+  it('keeps an extended name quantization over a coarse metadata type', () => {
+    expect(quantizationOf('gemma-UD-Q4_K_XL.gguf', sig({ fileType: 15 }))).toBe('Q4_K_XL');
+  });
+
+  it('falls back to metadata for names without a quantization', () => {
+    expect(quantizationOf('model.gguf', sig({ fileType: 15 }))).toBe('Q4_K_M');
+  });
+
+  it('returns null when nothing is known', () => {
+    expect(quantizationOf('model.gguf', sig({ fileType: null }))).toBeNull();
+  });
+});
+
+describe('isTextModel', () => {
+  it('accepts text and vision models with a tokenizer', () => {
+    expect(isTextModel(sig({ hasTokenizer: true }))).toBe(true);
+  });
+
+  it('rejects diffusion GGUF files without a tokenizer', () => {
+    expect(isTextModel(sig({ hasTokenizer: false }))).toBe(false);
+  });
+});
+
+const sig = (partial: Partial<import('./gguf.js').GgufSignature>) => ({
+  architecture: null,
+  generalType: null,
+  name: null,
+  basename: null,
+  tags: [],
+  blockCount: null,
+  embeddingLength: null,
+  contextLength: null,
+  fileType: null,
+  hasTokenizer: true,
+  hasMtp: false,
+  ...partial,
+});
+
+describe('classifyGguf', () => {
   it('detects mmproj from metadata even with an unrelated file name', () => {
     expect(
       classifyGguf('whatever.gguf', sig({ architecture: 'clip', generalType: 'mmproj' })),

@@ -210,6 +210,8 @@ export interface GgufSignature {
   blockCount: number | null;
   embeddingLength: number | null;
   contextLength: number | null;
+  fileType: number | null;
+  hasTokenizer: boolean;
   hasMtp: boolean;
 }
 
@@ -231,6 +233,8 @@ function parseSignature(buffer: Buffer): GgufSignature {
     blockCount: null,
     embeddingLength: null,
     contextLength: null,
+    fileType: null,
+    hasTokenizer: false,
     hasMtp: false,
   };
 
@@ -334,16 +338,15 @@ function parseSignature(buffer: Buffer): GgufSignature {
       else if (key === 'general.name' && type === 8) signature.name = text();
       else if (key === 'general.basename' && type === 8) signature.basename = text();
       else if (key === 'general.tags' && type === 9) signature.tags = readStringArray() ?? [];
+      else if (key === 'general.file_type') signature.fileType = readNumber(type);
       else if (key.endsWith('.block_count')) signature.blockCount = readNumber(type);
       else if (key.endsWith('.embedding_length')) signature.embeddingLength = readNumber(type);
       else if (key.endsWith('.context_length')) signature.contextLength = readNumber(type);
       else {
         skipValue(type);
-        if (
-          key.startsWith('tokenizer.') &&
-          (signature.architecture || signature.generalType || signature.name)
-        ) {
-          break;
+        if (key.startsWith('tokenizer.')) {
+          signature.hasTokenizer = true;
+          if (signature.architecture || signature.generalType || signature.name) break;
         }
       }
     }
@@ -389,6 +392,61 @@ export async function readGgufSignature(path: string): Promise<GgufSignature> {
 
 function wordMatch(text: string, word: string): boolean {
   return new RegExp(`(^|[-_. ])${word}([-_. ]|$)`, 'i').test(text);
+}
+
+const FILE_TYPE_QUANT: Record<number, string> = {
+  0: 'F32',
+  1: 'F16',
+  2: 'Q4_0',
+  3: 'Q4_1',
+  7: 'Q8_0',
+  8: 'Q5_0',
+  9: 'Q5_1',
+  10: 'Q2_K',
+  11: 'Q3_K_S',
+  12: 'Q3_K_M',
+  13: 'Q3_K_L',
+  14: 'Q4_K_S',
+  15: 'Q4_K_M',
+  16: 'Q5_K_S',
+  17: 'Q5_K_M',
+  18: 'Q6_K',
+  19: 'IQ2_XXS',
+  20: 'IQ2_XS',
+  21: 'Q2_K_S',
+  22: 'IQ3_XS',
+  23: 'IQ3_XXS',
+  24: 'IQ1_S',
+  25: 'IQ4_NL',
+  26: 'IQ3_S',
+  27: 'IQ3_M',
+  28: 'IQ2_S',
+  29: 'IQ2_M',
+  30: 'IQ4_XS',
+  31: 'IQ1_M',
+  32: 'BF16',
+  36: 'TQ1_0',
+  37: 'TQ2_0',
+  38: 'MXFP4_MOE',
+};
+
+const QUANT_IN_NAME = /(?<![A-Z0-9])(I?P?T?Q\d+(?:_[A-Z0-9]+)*|BF16|F16|F32|FP16|FP32)(?![A-Z0-9])/gi;
+
+// Read the quantization from metadata first, then from the file name.
+export function quantizationOf(fileName: string, signature: GgufSignature | null): string | null {
+  const fromMetadata =
+    signature?.fileType != null ? (FILE_TYPE_QUANT[signature.fileType] ?? null) : null;
+  const fromName = fileName
+    .replace(/\.gguf$/i, '')
+    .match(QUANT_IN_NAME)
+    ?.map((token) => token.toUpperCase());
+  if (fromMetadata && fromName?.some((token) => token === fromMetadata)) return fromMetadata;
+  return fromName?.at(-1) ?? fromMetadata;
+}
+
+// Text and vision-language GGUF files carry a tokenizer; diffusion files do not.
+export function isTextModel(signature: GgufSignature | null): boolean {
+  return !signature || signature.hasTokenizer;
 }
 
 // Classify a GGUF file from its metadata first, then fall back to its name.

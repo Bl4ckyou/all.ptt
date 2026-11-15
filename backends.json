@@ -64,6 +64,7 @@
   "backends": {
     "llama-cpp": {
       "label": "llama.cpp",
+      "shortLabel": "llama.cpp",
       "repo": "ggml-org/llama.cpp",
       "defaultVariant": "auto",
       "binaries": ["llama-server", "llama-server.exe"],
@@ -168,6 +169,7 @@
     },
     "ik-llama-cpp": {
       "label": "ik_llama.cpp (Thireus) — x86 CPU + NVIDIA",
+      "shortLabel": "ik_llama.cpp",
       "repo": "Thireus/ik_llama.cpp",
       "defaultVariant": "cpu",
       "binaries": ["llama-server", "llama-server.exe"],

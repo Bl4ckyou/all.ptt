@@ -27,6 +27,7 @@ export interface State {
   hardware: HardwareInfo | null;
   recommended: string | null;
   backends: BackendInfo[];
+  backendLatest: Record<string, Record<string, string>>;
   localModels: LocalModelInfo[];
   drafts: LocalModelInfo[];
   auxiliary: AuxiliaryFile[];
@@ -57,6 +58,7 @@ export const state: State = {
   hardware: null,
   recommended: null,
   backends: [],
+  backendLatest: {},
   localModels: [],
   drafts: [],
   auxiliary: [],

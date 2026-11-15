@@ -154,21 +154,25 @@ export function createSidebar(actions: Actions): Sidebar {
           on: { click: () => actions.setView('manage') },
         }, [icon('manage'), t('nav-manage')]),
       ]),
-      field(t('project-label'), projectRow, 'folder'),
-      field(t('conversation-label'), conversationRow, 'chat'),
-      state.projectId
-        ? el('button', {
-            class: 'refresh',
-            on: { click: () => actions.openNotes() },
-          }, [icon('fileText'), t('project-context-title')])
-        : el('span', { class: 'error' }),
-      field(t('provider-label'), providerSelect, 'server'),
-      field(t('model-label'), modelSelect, 'model'),
+      ...(state.view === 'chat'
+        ? [
+            field(t('project-label'), projectRow, 'folder'),
+            field(t('conversation-label'), conversationRow, 'chat'),
+            state.projectId
+              ? el('button', {
+                  class: 'refresh',
+                  on: { click: () => actions.openNotes() },
+                }, [icon('fileText'), t('project-context-title')])
+              : el('span', { class: 'error' }),
+            field(t('provider-label'), providerSelect, 'server'),
+            field(t('model-label'), modelSelect, 'model'),
+            el('button', {
+              class: 'refresh',
+              on: { click: () => void actions.refreshModels() },
+            }, [icon('refresh'), t('models-refresh')]),
+          ]
+        : []),
       field(t('language-label'), localeSelect, 'globe'),
-      el('button', {
-        class: 'refresh',
-        on: { click: () => void actions.refreshModels() },
-      }, [icon('refresh'), t('models-refresh')]),
       state.error ? el('p', { class: 'error' }, [icon('x'), t(state.error)]) : el('span', { class: 'error' }),
     );
   }

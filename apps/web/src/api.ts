@@ -2,6 +2,7 @@ import type { ChatEvent, ChatMessage, ModelInfo } from '@ptt/core';
 import type { GgufModelInfo } from '@ptt/core';
 import type {
   AuxiliaryFile,
+  BackendLatestInfo,
   BackendSettingsInfo,
   BackendsInfo,
   ConversationMeta,
@@ -48,6 +49,12 @@ export async function getBackends(): Promise<BackendsInfo> {
   const response = await fetch('/api/backends');
   if (!response.ok) throw new Error('failed to load backends');
   return (await response.json()) as BackendsInfo;
+}
+
+export async function getBackendLatest(): Promise<BackendLatestInfo> {
+  const response = await fetch('/api/backends/latest');
+  if (!response.ok) throw new Error('failed to load backend updates');
+  return (await response.json()) as BackendLatestInfo;
 }
 
 export async function startInstall(id: string, variant: string): Promise<JobInfo> {

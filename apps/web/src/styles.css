@@ -726,6 +726,39 @@ select.control {
   color: var(--accent);
 }
 
+.button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.running-card {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  box-shadow: 0 10px 30px rgba(70, 38, 58, 0.08);
+}
+
+.backend-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.status-pill {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.status-pill.update {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .button.danger {
   color: var(--danger);
 }
@@ -770,13 +803,12 @@ select.control {
 
 .model-name {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 7px;
   font-size: 13px;
   font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .manage-busy {
@@ -789,9 +821,7 @@ select.control {
 }
 
 .model-scroll {
-  max-height: 52vh;
-  overflow-y: auto;
-  padding-right: 4px;
+  overflow: visible;
 }
 
 .model-grid {
@@ -819,11 +849,33 @@ select.control {
   justify-content: center;
 }
 
-.model-card-top {
+.model-card-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
+}
+
+.model-quant {
+  flex: none;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.model-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.model-card-actions .button {
+  flex: 1;
 }
 
 .model-actions {
@@ -891,16 +943,48 @@ select.control {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .model-tools .search {
   flex: 1;
+  min-width: 180px;
 }
 
 .model-sort {
   width: auto;
-  min-width: 150px;
-  max-width: 190px;
+  min-width: 130px;
+  max-width: 170px;
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.segmented-option {
+  border: none;
+  border-radius: 7px;
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+.segmented-option:hover {
+  color: var(--accent);
+}
+
+.segmented-option.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .setting-list {

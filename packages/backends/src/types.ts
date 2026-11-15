@@ -75,6 +75,7 @@ export type SettingValue = string | number | boolean;
 
 export interface BackendEntry {
   label: string;
+  shortLabel?: string;
   repo: string;
   defaultVariant: string;
   binaries: string[];

@@ -1,11 +1,14 @@
 import {
   buildSettingArgs,
   detectTarget,
+  fetchReleases,
   readInstalledStates,
   readModelConfig,
   recommendBackend,
   resolveInstalledBinary,
   resolveSettings,
+  selectAsset,
+  toAssets,
   type BackendEntry,
 } from '@ptt/backends';
 import { OpenAICompatibleProvider } from '@ptt/providers';
@@ -35,6 +38,7 @@ export function backendsRoute(context: AppContext): Handler {
     const backends = Object.entries(context.manifest.backends).map(([id, backend]) => ({
       id,
       label: backend.label,
+      shortLabel: backend.shortLabel ?? backend.label,
       repo: backend.repo,
       defaultVariant: backend.defaultVariant,
       variants: variantsFor(backend),
@@ -47,6 +51,72 @@ export function backendsRoute(context: AppContext): Handler {
       backends,
       running: context.launcher.list(),
     });
+  };
+}
+
+const latestCache = new Map<string, { at: number; latest: Record<string, string> }>();
+const LATEST_TTL_MS = 10 * 60_000;
+
+// Compare installed variants with the newest matching GitHub release.
+export function backendLatestRoute(context: AppContext): Handler {
+  return async ({ res }) => {
+    const target = detectTarget();
+    const states = await readInstalledStates(context.root);
+    const latest: Record<string, Record<string, string>> = {};
+
+    await Promise.all(
+      Object.entries(states).map(async ([id, state]) => {
+        const variants = Object.values(state.variants ?? {});
+        if (variants.length === 0) return;
+
+        const cached = latestCache.get(id);
+        if (cached && Date.now() - cached.at < LATEST_TTL_MS) {
+          latest[id] = cached.latest;
+          return;
+        }
+
+        const backend = context.manifest.backends[id];
+        if (!backend) return;
+
+        let releases;
+        try {
+          releases = await fetchReleases(backend.repo, {
+            token: process.env.GITHUB_TOKEN,
+            perPage: 15,
+          });
+        } catch {
+          return;
+        }
+
+        const assetContext = {
+          cpu: target.cpu ?? 'avx2',
+          cuda: target.gpu.cuda ?? '',
+          os: target.os,
+          arch: target.arch,
+        };
+        const tags: Record<string, string> = {};
+        for (const variant of variants) {
+          if (tags[variant.target]) continue;
+          for (const release of releases) {
+            const match = selectAsset(
+              toAssets(release),
+              backend.selection,
+              [variant.target],
+              assetContext,
+            );
+            if (match) {
+              tags[variant.target] = release.tag_name;
+              break;
+            }
+          }
+        }
+
+        latestCache.set(id, { at: Date.now(), latest: tags });
+        latest[id] = tags;
+      }),
+    );
+
+    sendJson(res, 200, { latest });
   };
 }
 
