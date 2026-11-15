@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = process.cwd();
@@ -32,32 +32,60 @@ function findBinaries(directory, found = []) {
   return found;
 }
 
-function parseHelp(binary) {
-  let help = '';
+function run(binary, args) {
   try {
-    help = execFileSync(binary, ['--help'], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+    return execFileSync(binary, args, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
   } catch (error) {
-    help = `${error.stdout ?? ''}${error.stderr ?? ''}`;
-    if (!help) throw error;
+    const output = `${error.stdout ?? ''}${error.stderr ?? ''}`;
+    if (output) return output;
+    if (error.code === 'EACCES') {
+      chmodSync(binary, 0o755);
+      return execFileSync(binary, args, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+    }
+    throw error;
   }
+}
+
+function parseTypes(text) {
   const names = {};
-  for (const line of help.split('\n')) {
+  for (const line of text.split('\n')) {
     const match = line.match(/^\s*(\d+)\s+or\s+([A-Z0-9_]+)\s+:/);
     if (match) names[Number(match[1])] = match[2];
   }
   return names;
 }
 
-let binary = null;
-let names = {};
-for (const candidate of findBinaries(backends)) {
+function readTypes(binary) {
+  // llama.cpp lists types in `--help`; ik_llama.cpp lists them when run without arguments.
+  const names = { ...parseTypes(run(binary, [])), ...parseTypes(run(binary, ['--help'])) };
+  return names;
+}
+
+const candidates = findBinaries(backends).sort(
+  (a, b) => Number(a.includes('/ik-llama-cpp/')) - Number(b.includes('/ik-llama-cpp/')),
+);
+
+function readExisting() {
   try {
-    const parsed = parseHelp(candidate);
-    if (Object.keys(parsed).length > 0) {
-      binary = candidate;
-      names = parsed;
-      break;
+    const text = readFileSync(join(root, 'packages/backends/src/file-types.generated.ts'), 'utf8');
+    const names = {};
+    for (const match of text.matchAll(/^\s*(\d+): '([A-Z0-9_]+)',/gm)) {
+      names[Number(match[1])] = match[2];
     }
+    return names;
+  } catch {
+    return {};
+  }
+}
+
+const fromBinaries = {};
+let binary = null;
+for (const candidate of candidates) {
+  try {
+    const parsed = readTypes(candidate);
+    if (Object.keys(parsed).length === 0) continue;
+    binary ??= candidate;
+    for (const [id, name] of Object.entries(parsed)) fromBinaries[id] ??= name;
   } catch {
     // not executable on this platform, try the next one
   }
@@ -67,6 +95,9 @@ if (!binary) {
   console.error('Could not read quantization types from any llama-quantize binary');
   process.exit(1);
 }
+
+// Keep entries contributed by a backend that is not installed on this machine.
+const names = { ...readExisting(), ...fromBinaries };
 
 for (const [id, name] of Object.entries(EXTRA)) {
   names[Number(id)] ??= name;
