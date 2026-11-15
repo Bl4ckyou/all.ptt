@@ -11,7 +11,7 @@ function asset(name: string) {
 }
 
 describe('selectAsset', () => {
-  it('prefers cuda 12.x over newer cuda for llama.cpp', () => {
+  it('prefers the llama.cpp asset matching the detected cuda version', () => {
     const assets = [
       asset('llama-b1-bin-ubuntu-cuda-13.5-x64.tar.gz'),
       asset('llama-b1-bin-ubuntu-cuda-12.8-x64.tar.gz'),
@@ -25,6 +25,32 @@ describe('selectAsset', () => {
     );
     expect(result?.target).toBe('linux-x64-cuda');
     expect(result?.asset.name).toBe('llama-b1-bin-ubuntu-cuda-12.8-x64.tar.gz');
+  });
+
+  it('follows future cuda versions automatically', () => {
+    const result = selectAsset(
+      [
+        asset('llama-b1-bin-ubuntu-cuda-12.8-x64.tar.gz'),
+        asset('llama-b1-bin-ubuntu-cuda-13.1-x64.tar.gz'),
+      ],
+      manifest.backends['llama-cpp'].selection,
+      ['linux-x64-cuda'],
+      { ...context, cuda: '13.1' },
+    );
+    expect(result?.asset.name).toBe('llama-b1-bin-ubuntu-cuda-13.1-x64.tar.gz');
+  });
+
+  it('falls back to the nearest major cuda version', () => {
+    const result = selectAsset(
+      [
+        asset('llama-b1-bin-ubuntu-cuda-12.8-x64.tar.gz'),
+        asset('llama-b1-bin-ubuntu-cuda-13.1-x64.tar.gz'),
+      ],
+      manifest.backends['llama-cpp'].selection,
+      ['linux-x64-cuda'],
+      { ...context, cuda: '13.0' },
+    );
+    expect(result?.asset.name).toBe('llama-b1-bin-ubuntu-cuda-13.1-x64.tar.gz');
   });
 
   it('falls back to the cpu build when gpu builds are missing', () => {
@@ -63,6 +89,20 @@ describe('selectAsset', () => {
     );
     expect(result?.asset.name).toBe('llama-b1-bin-win-cuda-12.4-x64.zip');
     expect(result?.runtime?.name).toBe('cudart-llama-bin-win-cuda-12.4-x64.zip');
+  });
+
+  it('pairs the cuda 13 runtime without hardcoded versions', () => {
+    const result = selectAsset(
+      [
+        asset('cudart-llama-bin-win-cuda-13.1-x64.zip'),
+        asset('llama-b1-bin-win-cuda-13.1-x64.zip'),
+      ],
+      manifest.backends['llama-cpp'].selection,
+      ['win-x64-cuda'],
+      { ...context, os: 'win', cuda: '13.1' },
+    );
+    expect(result?.asset.name).toBe('llama-b1-bin-win-cuda-13.1-x64.zip');
+    expect(result?.runtime?.name).toBe('cudart-llama-bin-win-cuda-13.1-x64.zip');
   });
 
   it('pairs ik_llama cudart variants with the matching cpu build', () => {

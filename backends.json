@@ -167,7 +167,8 @@
           "targets": ["linux-x64-cuda"],
           "include": "bin-ubuntu-cuda-.*-x64\\.tar\\.gz$",
           "exclude": ["^cudart-"],
-          "prefer": ["cuda-12\\..*-x64\\.tar\\.gz$", "cuda-.*-x64\\.tar\\.gz$"]
+          "prefer": ["cuda-.*-x64\\.tar\\.gz$"],
+          "runtime": "cudart"
         },
         { "targets": ["linux-x64-rocm"], "include": "bin-ubuntu-rocm-.*-x64\\.tar\\.gz$" },
         { "targets": ["linux-x64-vulkan"], "include": "bin-ubuntu-vulkan-x64\\.tar\\.gz$" },
@@ -179,8 +180,8 @@
           "targets": ["win-x64-cuda"],
           "include": "bin-win-cuda-.*-x64\\.zip$",
           "exclude": ["^cudart-"],
-          "prefer": ["cuda-12\\..*-x64\\.zip$", "cuda-.*-x64\\.zip$"],
-          "runtime": "^cudart-.*win-cuda-.*-x64\\.zip$"
+          "prefer": ["cuda-.*-x64\\.zip$"],
+          "runtime": "cudart"
         },
         { "targets": ["win-x64-vulkan"], "include": "bin-win-vulkan-x64\\.zip$" },
         { "targets": ["win-x64-rocm"], "include": "bin-win-rocm-.*-x64\\.zip$" },
@@ -277,13 +278,8 @@
           "targets": ["linux-x64-cuda"],
           "include": "ik_llama-main-.*-bin-ubuntu-cuda-.*-x64-.*\\.zip$",
           "exclude": ["cudart"],
-          "prefer": [
-            "cuda-12\\.8-x64-{cpu}\\.zip$",
-            "cuda-12\\..*-x64-{cpu}\\.zip$",
-            "cuda-.*-x64-{cpu}\\.zip$",
-            "cuda-.*-x64-avx2\\.zip$"
-          ],
-          "runtime": "(^ik_llama-cudart-main-.*-bin-ubuntu-cuda-.*-x64-.*\\.zip$|^cudart-llama-bin-ubuntu-cuda-.*-x64\\.zip$|^ik_llama-main-.*-cudart-llama-bin-ubuntu-cuda-.*-x64-.*\\.zip$)"
+          "prefer": ["cuda-.*-x64-{cpu}\\.zip$", "cuda-.*-x64-avx2\\.zip$"],
+          "runtime": "cudart"
         },
         {
           "targets": ["linux-x64-cpu"],
@@ -294,13 +290,8 @@
           "targets": ["win-x64-cuda"],
           "include": "ik_llama-main-.*-bin-win-cuda-.*-x64-.*\\.zip$",
           "exclude": ["cudart"],
-          "prefer": [
-            "cuda-12\\.8-x64-{cpu}\\.zip$",
-            "cuda-12\\..*-x64-{cpu}\\.zip$",
-            "cuda-.*-x64-{cpu}\\.zip$",
-            "cuda-.*-x64-avx2\\.zip$"
-          ],
-          "runtime": "(^ik_llama-cudart-main-.*-bin-win-cuda-.*-x64-.*\\.zip$|^cudart-llama-bin-win-cuda-.*-x64\\.zip$|^ik_llama-main-.*-cudart-llama-bin-win-cuda-.*-x64-.*\\.zip$)"
+          "prefer": ["cuda-.*-x64-{cpu}\\.zip$", "cuda-.*-x64-avx2\\.zip$"],
+          "runtime": "cudart"
         },
         {
           "targets": ["win-x64-cpu"],

@@ -15,6 +15,14 @@ function rankOf(name: string, preferences: RegExp[]): number {
   return Number.MAX_SAFE_INTEGER;
 }
 
+function cudaRank(name: string, cuda: string | undefined): number {
+  const detected = cuda?.match(/\d+(?:\.\d+)?/)?.[0];
+  const asset = name.match(/cuda-(\d+(?:\.\d+)?)/i)?.[1];
+  if (!detected || !asset) return 0;
+  if (asset === detected) return 0;
+  return asset.split('.')[0] === detected.split('.')[0] ? 1 : 2;
+}
+
 export interface AssetSelection {
   target: string;
   asset: ReleaseAsset;
@@ -41,8 +49,13 @@ export function selectAsset(
 
       const preferences = (rule.prefer ?? []).map((pattern) => toRegExp(pattern, context));
       const ordered = matches
-        .map((asset, index) => ({ asset, index, rank: rankOf(asset.name, preferences) }))
-        .sort((a, b) => a.rank - b.rank || a.index - b.index)
+        .map((asset, index) => ({
+          asset,
+          index,
+          rank: rankOf(asset.name, preferences),
+          cuda: cudaRank(asset.name, context.cuda),
+        }))
+        .sort((a, b) => a.rank - b.rank || a.cuda - b.cuda || a.index - b.index)
         .map((entry) => entry.asset);
 
       const runtimeCandidates = rule.runtime
