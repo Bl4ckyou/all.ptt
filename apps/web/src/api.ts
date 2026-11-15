@@ -14,6 +14,7 @@ import type {
   ProjectMeta,
   ProviderSummary,
   ReleaseSummary,
+  TranslationStatus,
   ResolvedSettingInfo,
   SettingValue,
   StoredMessage,
@@ -360,4 +361,31 @@ export async function removeBackend(id: string): Promise<void> {
     method: 'DELETE',
   });
   if (!response.ok) throw new Error('failed to remove backend');
+}
+
+export async function getTranslationStatus(): Promise<TranslationStatus> {
+  const response = await fetch('/api/translation/status');
+  if (!response.ok) throw new Error('failed to load translation status');
+  return (await response.json()) as TranslationStatus;
+}
+
+export async function downloadTranslation(): Promise<TranslationStatus> {
+  const response = await fetch('/api/translation/download', { method: 'POST' });
+  if (!response.ok) throw new Error('failed to start translation download');
+  return (await response.json()) as TranslationStatus;
+}
+
+export async function enableTranslation(path: string): Promise<TranslationStatus> {
+  const response = await fetch('/api/translation/enable', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ path }),
+  });
+  return (await response.json()) as TranslationStatus;
+}
+
+export async function disableTranslation(): Promise<TranslationStatus> {
+  const response = await fetch('/api/translation/disable', { method: 'POST' });
+  if (!response.ok) throw new Error('failed to disable translation');
+  return (await response.json()) as TranslationStatus;
 }

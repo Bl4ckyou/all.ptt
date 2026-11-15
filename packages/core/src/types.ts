@@ -10,6 +10,8 @@ export interface ChatRequest {
   messages: ChatMessage[];
   temperature?: number;
   signal?: AbortSignal;
+  stop?: string[];
+  chatTemplateKwargs?: Record<string, unknown>;
 }
 
 export interface Usage {

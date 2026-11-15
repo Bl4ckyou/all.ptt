@@ -177,3 +177,18 @@ export interface StoredMessage {
   content: string;
   at: string;
 }
+
+export interface TranslationStatus {
+  status: 'idle' | 'downloading' | 'starting' | 'ready' | 'error';
+  progress: number;
+  total: number;
+  error?: string;
+  model?: {
+    path: string;
+    name: string;
+    quant: string | null;
+    contextLength: number | null;
+    targetLang: boolean;
+  };
+  languages?: string[];
+}

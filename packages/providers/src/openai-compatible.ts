@@ -128,6 +128,10 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
         messages: request.messages,
         temperature: request.temperature,
         stream: true,
+        ...(request.stop ? { stop: request.stop } : {}),
+        ...(request.chatTemplateKwargs
+          ? { chat_template_kwargs: request.chatTemplateKwargs }
+          : {}),
       }),
       signal: request.signal,
     });

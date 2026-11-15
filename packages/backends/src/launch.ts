@@ -18,6 +18,7 @@ export interface LaunchOptions {
   port?: number;
   extraArgs?: string[];
   local?: LocalBackend;
+  binary?: string;
 }
 
 interface ProcessEntry extends RunningBackend {
@@ -75,7 +76,9 @@ export class BackendLauncher {
   }
 
   async launch(options: LaunchOptions): Promise<RunningBackend> {
-    const resolved = await resolveInstalledBinary(this.root, options.backendId);
+    const resolved = options.binary
+      ? { backendId: options.backendId ?? 'translation', record: { binary: options.binary } }
+      : await resolveInstalledBinary(this.root, options.backendId);
     if (!resolved) throw new Error('no installed backend binary found');
 
     const port = options.port ?? (await findFreePort());

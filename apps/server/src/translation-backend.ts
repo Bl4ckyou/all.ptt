@@ -1,0 +1,271 @@
+import { createWriteStream } from 'node:fs';
+import { mkdir, rename, stat } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import {
+  BackendLauncher,
+  quantizationOf,
+  readGgufSignature,
+  readInstalledStates,
+  resolveInstalledBinary,
+  type RunningBackend,
+} from '@ptt/backends';
+import type { ChatMessage } from '@ptt/core';
+import { OpenAICompatibleProvider } from '@ptt/providers';
+import type { ProviderRegistry } from './providers.js';
+import { ProviderTranslator, type MutableTranslator, type Translator } from './translation.js';
+
+const PROVIDER_ID = 'ptt-translation';
+const MODEL_ALIAS = 'ptt-translation';
+const PLAMO_URL =
+  'https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF/resolve/main/plamo-3-translate-0.8b-Q4_K_M.gguf';
+
+const PLAMO_LANGUAGES = [
+  'ja', 'en', 'zh-hans', 'zh-hant', 'ko', 'ar', 'az', 'be', 'bg', 'bn', 'ca', 'ceb', 'de',
+  'es', 'et', 'eu', 'fa', 'fr', 'gu', 'he', 'hi', 'hr', 'hu', 'hy', 'id', 'it', 'jv', 'ka',
+  'kk', 'km', 'lt', 'lv', 'ml', 'mr', 'ms', 'my', 'ne', 'nl', 'pa', 'pl', 'ru', 'si', 'sk',
+  'sl', 'sr', 'sw', 'ta', 'te', 'th', 'tl', 'ur', 'uz', 'vi',
+];
+
+export interface TranslationStatus {
+  status: 'idle' | 'downloading' | 'starting' | 'ready' | 'error';
+  progress: number;
+  total: number;
+  error?: string;
+  providerId?: string;
+  model?: {
+    path: string;
+    name: string;
+    quant: string | null;
+    contextLength: number | null;
+    targetLang: boolean;
+  };
+  languages?: string[];
+}
+
+function targetLang(locale: string): string {
+  const value = locale.toLowerCase();
+  if (value.startsWith('zh')) {
+    return value.includes('tw') || value.includes('hant') ? 'zh-hant' : 'zh-hans';
+  }
+  return value.split(/[-_]/)[0];
+}
+
+function publicModelPath(root: string): string {
+  return join(root, '.ptt', 'translation', 'plamo-3-translate-0.8b-Q4_K_M.gguf');
+}
+
+async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  run: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      const index = next;
+      next += 1;
+      if (index >= items.length) return;
+      results[index] = await run(items[index]);
+    }
+  };
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
+class NativeTranslator implements Translator {
+  constructor(
+    private readonly registry: ProviderRegistry,
+    private readonly template: boolean,
+  ) {}
+
+  async translate(texts: string[], locale: string): Promise<string[]> {
+    const provider = this.registry.get(PROVIDER_ID);
+    if (!provider) throw new Error('translation provider is not running');
+
+    return mapLimit(texts, 4, async (text) => {
+      const messages: ChatMessage[] = [{ role: 'user', content: text }];
+      let content = '';
+      for await (const event of provider.chat({
+        model: MODEL_ALIAS,
+        messages,
+        temperature: 0,
+        ...(this.template ? { chatTemplateKwargs: { target_lang: targetLang(locale) } } : {}),
+      })) {
+        if (event.type === 'content') content += event.delta;
+      }
+      return content.trim();
+    });
+  }
+}
+
+async function download(url: string, destination: string, onProgress: (done: number, total: number) => void): Promise<void> {
+  await mkdir(dirname(destination), { recursive: true });
+  const temporary = `${destination}.part`;
+  const response = await fetch(url);
+  if (!response.ok || !response.body) {
+    throw new Error(`download failed: ${response.status}`);
+  }
+
+  const total = Number(response.headers.get('content-length') ?? 0);
+  const output = createWriteStream(temporary);
+  const reader = response.body.getReader();
+  let done = 0;
+  for (;;) {
+    const { done: finished, value } = await reader.read();
+    if (finished) break;
+    const buffer = Buffer.from(value);
+    if (!output.write(buffer)) {
+      await new Promise<void>((resolve) => output.once('drain', resolve));
+    }
+    done += buffer.length;
+    onProgress(done, total);
+  }
+  await new Promise<void>((resolve, reject) => {
+    output.end((error?: Error | null) => (error ? reject(error) : resolve()));
+  });
+  await rename(temporary, destination);
+}
+
+export class TranslationManager {
+  private state: TranslationStatus = { status: 'idle', progress: 0, total: 0 };
+  private running: RunningBackend | null = null;
+
+  constructor(
+    private readonly root: string,
+    private readonly registry: ProviderRegistry,
+    private readonly launcher: BackendLauncher,
+    private readonly translator: MutableTranslator,
+  ) {
+    if (translator.inner) {
+      this.state = { status: 'ready', progress: 0, total: 0, providerId: PROVIDER_ID };
+    }
+  }
+
+  status(): TranslationStatus {
+    return { ...this.state };
+  }
+
+  async disable(): Promise<void> {
+    if (this.running) {
+      this.launcher.stop(this.running.providerId);
+      this.running = null;
+    }
+    this.registry.remove(PROVIDER_ID);
+    this.translator.inner = null;
+    this.state = { status: 'idle', progress: 0, total: 0 };
+  }
+
+  startDownload(): TranslationStatus {
+    if (this.state.status === 'downloading') return this.status();
+    const destination = publicModelPath(this.root);
+    this.state = { status: 'downloading', progress: 0, total: 0 };
+
+    void download(PLAMO_URL, destination, (done, total) => {
+      this.state = { status: 'downloading', progress: done, total };
+    })
+      .then(() => this.enableWithModel(destination))
+      .catch((error: Error) => {
+        this.state = { status: 'error', progress: 0, total: 0, error: error.message };
+      });
+
+    return this.status();
+  }
+
+  async enableWithModel(path: string): Promise<TranslationStatus> {
+    this.state = { status: 'starting', progress: 0, total: 0 };
+
+    try {
+      const info = await stat(path);
+      if (!info.isFile()) throw new Error('translation model must be a GGUF file');
+
+      const signature = await readGgufSignature(path);
+      if (!signature.hasTokenizer) throw new Error('not a usable GGUF model');
+
+      const binary = await this.findLlamaBinary();
+      if (!binary) throw new Error('no llama.cpp backend is installed');
+
+      if (this.running) {
+        this.launcher.stop(this.running.providerId);
+        this.running = null;
+      }
+
+      this.running = await this.launcher.launch({
+        binary,
+        backendId: 'translation',
+        modelPath: path,
+        local: {
+          binary: '',
+          baseArgs: [
+            '-m',
+            '{model}',
+            '--host',
+            '{host}',
+            '--port',
+            '{port}',
+            '--jinja',
+            '--alias',
+            MODEL_ALIAS,
+          ],
+        },
+      });
+
+      this.registry.add(
+        new OpenAICompatibleProvider({
+          id: PROVIDER_ID,
+          baseUrl: `http://127.0.0.1:${this.running.port}/v1`,
+        }),
+      );
+
+      const template = /target_lang/.test(signature.chatTemplate ?? '');
+      this.translator.inner = template
+        ? new NativeTranslator(this.registry, true)
+        : new ProviderTranslator(this.registry, { providerId: PROVIDER_ID, model: MODEL_ALIAS });
+
+      const name = signature.name ?? signature.basename ?? 'translation model';
+      this.state = {
+        status: 'ready',
+        progress: 0,
+        total: 0,
+        providerId: PROVIDER_ID,
+        model: {
+          path,
+          name,
+          quant: quantizationOf(path, signature),
+          contextLength: signature.contextLength,
+          targetLang: template,
+        },
+        languages:
+          template && /plamo/i.test(`${signature.name ?? ''} ${signature.architecture ?? ''}`)
+            ? PLAMO_LANGUAGES
+            : undefined,
+      };
+      return this.status();
+    } catch (error) {
+      this.state = {
+        status: 'error',
+        progress: 0,
+        total: 0,
+        error: (error as Error).message,
+      };
+      return this.status();
+    }
+  }
+
+  private async findLlamaBinary(): Promise<string | null> {
+    for (const id of ['llama-cpp', 'ik-llama-cpp']) {
+      const resolved = await resolveInstalledBinary(this.root, id);
+      if (resolved) return resolved.record.binary;
+    }
+
+    const states = await readInstalledStates(this.root);
+    for (const state of Object.values(states)) {
+      for (const variant of Object.values(state.variants)) {
+        if (/llama-server(\.exe)?$/i.test(variant.binary)) return variant.binary;
+      }
+    }
+    return null;
+  }
+}

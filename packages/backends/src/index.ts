@@ -66,6 +66,7 @@ export {
   readGgufSignature,
   classifyGguf,
   mergeFileTypeNames,
+  quantizationOf,
 } from './gguf.js';
 export type { GgufCategory, GgufClassification, GgufSignature } from './gguf.js';
 export {

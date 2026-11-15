@@ -11,6 +11,7 @@ import type {
   LocalModelInfo,
   ResolvedSettingInfo,
   SettingValue,
+  TranslationStatus,
 } from '../types.js';
 
 const FAVORITES_KEY = 'ptt.favorites';
@@ -673,13 +674,107 @@ export function createManage(actions: Actions): Manage {
               },
             },
           }, [icon('refresh'), t('manage-translate')]);
+
+          const disableButton = el('button', {
+            class: 'button',
+            on: {
+              click: () => {
+                void actions.disableTranslation().then(renderTranslationStatus);
+              },
+            },
+          }, [icon('x'), t('manage-translate-disable')]);
+
+          const pathInput = el('input', {
+            class: 'control',
+            attrs: { placeholder: '/path/to/translation-model.gguf' },
+          });
+          const downloadButton = el('button', {
+            class: 'button',
+            on: {
+              click: () => {
+                downloadButton.disabled = true;
+                void actions.downloadTranslation().then(renderTranslationStatus);
+              },
+            },
+          }, [icon('download'), t('manage-translate-download')]);
+          const enableButton = el('button', {
+            class: 'button',
+            on: {
+              click: () => {
+                const path = pathInput.value.trim();
+                if (!path) return;
+                enableButton.disabled = true;
+                void actions.enableTranslation(path).then(renderTranslationStatus);
+              },
+            },
+          }, [icon('play'), t('manage-translate-enable')]);
+
+          const setup = el('div', {}, [
+            el('p', { class: 'manage-line muted', text: t('manage-translate-desc') }),
+            el('div', { class: 'manage-actions' }, [downloadButton]),
+            el('div', { class: 'manage-actions' }, [pathInput, enableButton]),
+          ]);
+
+          let poll: number | null = null;
+          function renderTranslationStatus(status: TranslationStatus): void {
+            const active = status.status === 'downloading' || status.status === 'starting';
+            if (poll !== null && !active) {
+              window.clearInterval(poll);
+              poll = null;
+            }
+            if (active && poll === null) {
+              poll = window.setInterval(() => {
+                if (!setup.isConnected) {
+                  if (poll !== null) window.clearInterval(poll);
+                  poll = null;
+                  return;
+                }
+                void actions.translationStatus().then(renderTranslationStatus);
+              }, 1000);
+            }
+
+            const ready = status.status === 'ready';
+            setup.hidden = ready;
+            translateButton.disabled = !ready;
+            disableButton.hidden = !ready;
+
+            if (ready) {
+              translateStatus.textContent = status.model
+                ? t('manage-translate-ready', {
+                    model: status.model.name,
+                    quant: status.model.quant ?? '',
+                  })
+                : t('manage-translate-ready', { model: 'provider', quant: '' });
+            } else if (status.status === 'downloading') {
+              const percent = status.total
+                ? Math.round((status.progress / status.total) * 100)
+                : 0;
+              translateStatus.textContent = t('manage-translate-progress', {
+                percent: String(percent),
+              });
+            } else if (status.status === 'starting') {
+              translateStatus.textContent = t('manage-translate-starting');
+            } else if (status.status === 'error') {
+              translateStatus.textContent = status.error ?? t('manage-translate-error');
+            } else {
+              translateStatus.textContent = '';
+            }
+          }
+
+          void actions.translationStatus().then(renderTranslationStatus);
+
           body.append(
             el('details', { class: 'advanced raw-options' }, [
               el('summary', { class: 'advanced-summary' }, [
                 icon('manage', 'icon small'),
                 t('manage-raw-options'),
               ]),
-              el('div', { class: 'manage-actions' }, [translateButton, translateStatus]),
+              el('div', { class: 'manage-actions' }, [
+                translateButton,
+                disableButton,
+                translateStatus,
+              ]),
+              setup,
               searchInput,
               groups,
             ]),

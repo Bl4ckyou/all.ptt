@@ -50,7 +50,7 @@ const PRESET = /^(fim-qwen|gpt-oss|vision-gemma|embd-gemma|spec-default)/;
 
 // HTTP/UI/router flags: PTT owns these, exposing them only adds noise and risk.
 const SERVER_ONLY =
-  /^(cors-|ssl-|api-|webui-|ui-|models-|mcp-|tools$|tools-|allow-unauthenticated-tools$|agent$|connect$|connect-|rerank|metrics$|props$|slots?$|slot-|media-|path$|reuse-port$|timeout$|sse-|log-|offline$|alias$|tags$|rpc$|threads-http$|sleep-idle-seconds$|verbose$|verbosity$|perf$)/;
+  /^(cors-|ssl-|api-|webui-|ui-|models-|mcp-|tools$|tools-|allow-unauthenticated-tools$|agent$|connect$|connect-|rerank|metrics$|props$|slots?$|slot-|media-|path$|reuse-port$|timeout$|sse-|log-|offline$|alias$|tags$|rpc$|threads-http$|sleep-idle-seconds$|verbose$|verbosity$|perf$|chat-template|jinja$|skip-chat-parsing$|prefill-assistant$|reasoning-format$)/;
 
 // Keep only options related to running a model. Everything else is server/admin noise.
 const INFERENCE =

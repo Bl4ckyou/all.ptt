@@ -8,7 +8,8 @@ import { JobManager } from './jobs.js';
 import { ProviderRegistry } from './providers.js';
 import { ProjectStore } from './projects.js';
 import { serveStatic } from './static.js';
-import { ProviderTranslator, TranslationService } from './translation.js';
+import { MutableTranslator, ProviderTranslator, TranslationService } from './translation.js';
+import { TranslationManager } from './translation-backend.js';
 
 const config = await loadConfig().catch((error: Error) => {
   console.error(`Failed to load config: ${error.message}`);
@@ -18,10 +19,17 @@ const registry = new ProviderRegistry(config.providers);
 const launcher = new BackendLauncher(config.backendRoot, (providerId) => registry.remove(providerId));
 const jobs = new JobManager();
 const projects = new ProjectStore(config.backendRoot);
-const translator = config.translation
-  ? new ProviderTranslator(registry, config.translation)
-  : null;
+const translator = new MutableTranslator();
+if (config.translation) {
+  translator.inner = new ProviderTranslator(registry, config.translation);
+}
 const translation = new TranslationService(config.backendRoot, translator);
+const translationManager = new TranslationManager(
+  config.backendRoot,
+  registry,
+  launcher,
+  translator,
+);
 const manifest = loadManifest();
 const custom = await readCustomBackends(config.backendRoot);
 for (const [id, backend] of Object.entries(custom.backends)) {
@@ -36,6 +44,7 @@ const context = {
   root: config.backendRoot,
   modelDirs: config.modelDirs,
   translation,
+  translationManager,
 };
 const app = createApp(context);
 

@@ -6,6 +6,7 @@ import type {
   LocalModelInfo,
   ModelConfigInfo,
   ReleaseSummary,
+  TranslationStatus,
   SettingValue,
 } from './types.js';
 
@@ -22,6 +23,10 @@ export interface Actions {
   addGithubBackend(input: GithubBackendInput): Promise<void>;
   browseBackendReleases(repo: string): Promise<ReleaseSummary[]>;
   removeBackend(id: string): Promise<void>;
+  translationStatus(): Promise<TranslationStatus>;
+  downloadTranslation(): Promise<TranslationStatus>;
+  enableTranslation(path: string): Promise<TranslationStatus>;
+  disableTranslation(): Promise<TranslationStatus>;
   installBackend(id: string, variant: string): Promise<void>;
   updateBackends(): Promise<void>;
   pauseJob(): Promise<void>;

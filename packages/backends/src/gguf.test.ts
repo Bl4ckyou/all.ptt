@@ -125,6 +125,32 @@ describe('readGgufSignature', () => {
     expect(signature.hasMtp).toBe(true);
   });
 
+  it('reads the chat template from GGUF metadata', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ptt-gguf-'));
+    temporaryDirectories.push(directory);
+
+    const template = '{% if target_lang %}translate to {{ target_lang }}{% endif %}';
+    const entries = [
+      entry('general.architecture', 8, ggufString('plamo')),
+      entry('tokenizer.chat_template', 8, ggufString(template)),
+    ];
+    const file = join(directory, 'template.gguf');
+    await writeFile(
+      file,
+      Buffer.concat([
+        Buffer.from('GGUF', 'ascii'),
+        u32(3),
+        u64(0),
+        u64(entries.length),
+        ...entries,
+      ]),
+    );
+
+    const signature = await readGgufSignature(file);
+    expect(signature.chatTemplate).toBe(template);
+    expect(signature.hasTokenizer).toBe(true);
+  });
+
   it('reads metadata located beyond the old 128 KiB window', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'ptt-gguf-'));
     temporaryDirectories.push(directory);

@@ -5,9 +5,13 @@ import {
   addGithubBackend,
   addLocalBackend,
   browseBackendReleases,
+  disableTranslation,
+  downloadTranslation,
+  enableTranslation,
   getBackendLatest,
   getBackendSettings,
   getBackends,
+  getTranslationStatus,
   getLocales,
   getLocalModels,
   getModelConfig,
@@ -48,6 +52,7 @@ import type {
   LocalModelInfo,
   ModelConfigInfo,
   ReleaseSummary,
+  TranslationStatus,
   SettingValue,
 } from './types.js';
 import { createChat } from './views/chat.js';
@@ -104,6 +109,22 @@ async function addGithubBackendAction(input: GithubBackendInput): Promise<void> 
 
 async function browseBackendReleasesAction(repo: string): Promise<ReleaseSummary[]> {
   return browseBackendReleases(repo);
+}
+
+async function translationStatusAction(): Promise<TranslationStatus> {
+  return getTranslationStatus();
+}
+
+async function downloadTranslationAction(): Promise<TranslationStatus> {
+  return downloadTranslation();
+}
+
+async function enableTranslationAction(path: string): Promise<TranslationStatus> {
+  return enableTranslation(path);
+}
+
+async function disableTranslationAction(): Promise<TranslationStatus> {
+  return disableTranslation();
 }
 
 async function removeBackendAction(id: string): Promise<void> {
@@ -593,6 +614,10 @@ const actions: Actions = {
   addGithubBackend: addGithubBackendAction,
   browseBackendReleases: browseBackendReleasesAction,
   removeBackend: removeBackendAction,
+  translationStatus: translationStatusAction,
+  downloadTranslation: downloadTranslationAction,
+  enableTranslation: enableTranslationAction,
+  disableTranslation: disableTranslationAction,
   installBackend: installBackendAction,
   updateBackends: updateBackendsAction,
   pauseJob: pauseJobAction,

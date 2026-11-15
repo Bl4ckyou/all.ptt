@@ -9,6 +9,14 @@ export interface Translator {
   translate(texts: string[], locale: string): Promise<string[]>;
 }
 
+export class MutableTranslator implements Translator {
+  inner: Translator | null = null;
+
+  async translate(texts: string[], locale: string): Promise<string[]> {
+    return this.inner ? this.inner.translate(texts, locale) : texts;
+  }
+}
+
 export interface TranslationConfig {
   providerId: string;
   model: string;

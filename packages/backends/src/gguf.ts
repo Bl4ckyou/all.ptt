@@ -165,6 +165,7 @@ export interface GgufSignature {
   fileType: number | null;
   hasTokenizer: boolean;
   hasMtp: boolean;
+  chatTemplate?: string | null;
 }
 
 export interface GgufClassification {
@@ -194,6 +195,7 @@ function emptySignature(): GgufSignature {
     contextLength: null,
     hasTokenizer: false,
     hasMtp: false,
+    chatTemplate: null,
   };
 }
 
@@ -241,7 +243,7 @@ async function scanGguf(path: string): Promise<GgufMeta> {
     const signature = emptySignature();
     const values: Record<string, number | number[]> = {};
 
-    metadata: for (let index = 0; index < kvCount; index += 1) {
+    for (let index = 0; index < kvCount; index += 1) {
       let key: string;
       let type: number;
       try {
@@ -264,6 +266,9 @@ async function scanGguf(path: string): Promise<GgufMeta> {
           signature.basename = await readText(reader, type);
         } else if (key === 'general.tags' && type === 9) {
           signature.tags = await readStringElements(reader);
+        } else if (key === 'tokenizer.chat_template') {
+          signature.chatTemplate = await readText(reader, type);
+          signature.hasTokenizer = true;
         } else if (key === 'general.file_type') {
           signature.fileType = scalar(await readNumbers(reader, type));
         } else if (key.endsWith('.block_count')) {
@@ -281,10 +286,7 @@ async function scanGguf(path: string): Promise<GgufMeta> {
           values['attention.head_count_kv'] = (await readNumbers(reader, type)) ?? [];
         } else {
           await skipValue(reader, type);
-          if (key.startsWith('tokenizer.')) {
-            signature.hasTokenizer = true;
-            if (signature.architecture || signature.generalType || signature.name) break metadata;
-          }
+          if (key.startsWith('tokenizer.')) signature.hasTokenizer = true;
         }
       } catch {
         break;

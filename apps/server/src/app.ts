@@ -21,6 +21,12 @@ import {
   removeCustomBackendRoute,
 } from './routes/custom-backends.js';
 import { healthRoute } from './routes/health.js';
+import {
+  translationDisableRoute,
+  translationDownloadRoute,
+  translationEnableRoute,
+  translationStatusRoute,
+} from './routes/translation.js';
 import { i18nCatalogRoute, i18nLocalesRoute } from './routes/i18n.js';
 import {
   localModelsRoute,
@@ -65,6 +71,10 @@ export function createApp(context: AppContext): Router {
     .get('/api/backends/custom/releases', browseBackendReleasesRoute(context))
     .post('/api/backends/custom/github', addGithubBackendRoute(context))
     .delete('/api/backends/custom/:id', removeCustomBackendRoute(context))
+    .get('/api/translation/status', translationStatusRoute(context))
+    .post('/api/translation/download', translationDownloadRoute(context))
+    .post('/api/translation/enable', translationEnableRoute(context))
+    .post('/api/translation/disable', translationDisableRoute(context))
     .get('/api/backends/jobs/:id', jobRoute(context))
     .post('/api/backends/jobs/:id/pause', pauseJobRoute(context))
     .post('/api/backends/jobs/:id/resume', resumeJobRoute(context))
