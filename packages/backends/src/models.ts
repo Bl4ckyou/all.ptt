@@ -1,6 +1,7 @@
 import { realpath, readdir, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { readJsonFile, writeJsonFile } from './json-file.js';
 import {
   classifyGguf,
   isTextModel,
@@ -72,11 +73,49 @@ function huggingFaceCacheDirs(): string[] {
   return [...new Set(dirs)];
 }
 
+interface IndexedFile {
+  mtimeMs: number;
+  size: number;
+  file: ScannedFile;
+}
+
+const SCAN_INDEX = join(homedir(), '.cache', 'ptt', 'model-scan.json');
+let scanIndex: Map<string, IndexedFile> | null = null;
+let scanIndexPromise: Promise<Map<string, IndexedFile>> | null = null;
+let saveTimer: NodeJS.Timeout | null = null;
+
+async function loadScanIndex(): Promise<Map<string, IndexedFile>> {
+  if (scanIndex) return scanIndex;
+  if (!scanIndexPromise) {
+    scanIndexPromise = readJsonFile<Record<string, IndexedFile>>(SCAN_INDEX)
+      .then((value) => {
+        scanIndex = new Map(Object.entries(value ?? {}));
+        return scanIndex;
+      })
+      .catch(() => {
+        scanIndex = new Map();
+        return scanIndex;
+      });
+  }
+  return scanIndexPromise;
+}
+
+function scheduleIndexSave(): void {
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    if (!scanIndex) return;
+    void writeJsonFile(SCAN_INDEX, Object.fromEntries(scanIndex)).catch(() => undefined);
+  }, 250);
+  saveTimer.unref?.();
+}
+
 async function collect(
   directory: string,
   source: string,
   files: ScannedFile[],
   seen: Set<string>,
+  index: Map<string, IndexedFile>,
 ): Promise<void> {
   let entries;
   try {
@@ -89,7 +128,8 @@ async function collect(
     const full = join(directory, entry.name);
 
     if (entry.isDirectory()) {
-      await collect(full, source, files, seen);
+      if (entry.name === 'blobs' || entry.name === '.locks') continue;
+      await collect(full, source, files, seen, index);
       continue;
     }
 
@@ -104,6 +144,12 @@ async function collect(
 
       const info = await stat(real);
       seen.add(real);
+
+      const cached = index.get(real);
+      if (cached && cached.mtimeMs === info.mtimeMs && cached.size === info.size) {
+        files.push({ ...cached.file, path: full });
+        continue;
+      }
 
       let signature = null;
       try {
@@ -123,7 +169,7 @@ async function collect(
       // Skip diffusion and other non-text GGUF files: they have no tokenizer.
       if (kind === 'model' && !isTextModel(signature)) continue;
 
-      files.push({
+      const scanned: ScannedFile = {
         path: full,
         name: entry.name.replace(/\.gguf$/i, ''),
         size: info.size,
@@ -137,7 +183,10 @@ async function collect(
         hasMtp: signature?.hasMtp ?? false,
         chatTemplate: signature?.chatTemplate ?? null,
         ...(kind === 'draft' ? { category: classification.category } : {}),
-      });
+      };
+      files.push(scanned);
+      index.set(real, { mtimeMs: info.mtimeMs, size: info.size, file: scanned });
+      scheduleIndexSave();
     } catch {
       // broken symlink
     }
@@ -151,26 +200,23 @@ export interface LocalFiles {
 }
 
 let scanCache: { key: string; expires: number; value: LocalFiles } | null = null;
+let inflightScan: { key: string; promise: Promise<LocalFiles> } | null = null;
 
 export function clearModelScanCache(): void {
   scanCache = null;
+  inflightScan = null;
 }
 
-// Scan the Hugging Face cache and extra directories once, classifying files.
-export async function scanLocalFiles(extraDirs: string[] = []): Promise<LocalFiles> {
-  const key = JSON.stringify(extraDirs);
-  if (scanCache && scanCache.key === key && scanCache.expires > Date.now()) {
-    return scanCache.value;
-  }
-
+async function performScan(extraDirs: string[]): Promise<LocalFiles> {
   const files: ScannedFile[] = [];
   const seen = new Set<string>();
+  const index = await loadScanIndex();
 
   for (const directory of huggingFaceCacheDirs()) {
-    await collect(directory, 'huggingface', files, seen);
+    await collect(directory, 'huggingface', files, seen, index);
   }
   for (const directory of extraDirs) {
-    await collect(directory, 'local', files, seen);
+    await collect(directory, 'local', files, seen, index);
   }
 
   const models = files
@@ -187,9 +233,36 @@ export async function scanLocalFiles(extraDirs: string[] = []): Promise<LocalFil
     .filter((file) => file.kind === 'mmproj')
     .map(({ kind: _kind, category: _category, ...rest }) => ({ ...rest, kind: 'mmproj' as const }))
     .sort((a, b) => a.name.localeCompare(b.name));
-  const value = { models, drafts, auxiliary };
-  scanCache = { key, expires: Date.now() + 10_000, value };
-  return value;
+
+  return { models, drafts, auxiliary };
+}
+
+// Scan the Hugging Face cache and extra directories once, classifying files.
+// Cached results are returned immediately while a refresh runs in the background.
+export async function scanLocalFiles(extraDirs: string[] = []): Promise<LocalFiles> {
+  const key = JSON.stringify(extraDirs);
+  if (scanCache && scanCache.key === key && scanCache.expires > Date.now()) {
+    return scanCache.value;
+  }
+
+  if (inflightScan && inflightScan.key === key) {
+    return scanCache && scanCache.key === key ? scanCache.value : inflightScan.promise;
+  }
+
+  let promise: Promise<LocalFiles>;
+  promise = performScan(extraDirs)
+    .then((value) => {
+      scanCache = { key, expires: Date.now() + 60_000, value };
+      return value;
+    })
+    .finally(() => {
+      if (inflightScan?.promise === promise) inflightScan = null;
+    });
+  inflightScan = { key, promise };
+
+  // Stale-while-revalidate: never make the UI wait for a re-scan.
+  if (scanCache && scanCache.key === key) return scanCache.value;
+  return promise;
 }
 
 export async function scanLocalModels(extraDirs: string[] = []): Promise<LocalModel[]> {
