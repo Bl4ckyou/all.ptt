@@ -737,6 +737,8 @@ export function createManage(actions: Actions): Manage {
             setup.hidden = ready;
             translateButton.disabled = !ready;
             disableButton.hidden = !ready;
+            downloadButton.disabled = active;
+            enableButton.disabled = active;
 
             if (ready) {
               translateStatus.textContent = status.model

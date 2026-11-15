@@ -159,17 +159,27 @@ export class TranslationManager {
   }
 
   startDownload(): TranslationStatus {
-    if (this.state.status === 'downloading') return this.status();
+    if (this.state.status === 'downloading' || this.state.status === 'starting') {
+      return this.status();
+    }
+
     const destination = publicModelPath(this.root);
     this.state = { status: 'downloading', progress: 0, total: 0 };
 
-    void download(PLAMO_URL, destination, (done, total) => {
-      this.state = { status: 'downloading', progress: done, total };
-    })
-      .then(() => this.enableWithModel(destination))
-      .catch((error: Error) => {
-        this.state = { status: 'error', progress: 0, total: 0, error: error.message };
+    void (async () => {
+      const existing = await stat(destination).catch(() => null);
+      if (existing?.isFile() && existing.size > 1024) {
+        await this.enableWithModel(destination);
+        return;
+      }
+
+      await download(PLAMO_URL, destination, (done, total) => {
+        this.state = { status: 'downloading', progress: done, total };
       });
+      await this.enableWithModel(destination);
+    })().catch((error: Error) => {
+      this.state = { status: 'error', progress: 0, total: 0, error: error.message };
+    });
 
     return this.status();
   }
