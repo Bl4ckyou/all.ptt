@@ -26,8 +26,20 @@ export function sendError(res: ServerResponse, status: number, code: string): vo
   sendJson(res, status, { error: code });
 }
 
-export async function readJson<T>(req: IncomingMessage): Promise<T> {
+const MAX_BODY_BYTES = 1024 * 1024;
+
+export async function readJson<T>(req: IncomingMessage, limit = MAX_BODY_BYTES): Promise<T> {
   const chunks: Buffer[] = [];
-  for await (const chunk of req) chunks.push(chunk as Buffer);
-  return JSON.parse(Buffer.concat(chunks).toString('utf8')) as T;
+  let size = 0;
+  for await (const chunk of req) {
+    size += (chunk as Buffer).length;
+    if (size > limit) {
+      req.destroy();
+      throw new Error('request body too large');
+    }
+    chunks.push(chunk as Buffer);
+  }
+  const text = Buffer.concat(chunks).toString('utf8');
+  if (!text.trim()) return {} as T;
+  return JSON.parse(text) as T;
 }

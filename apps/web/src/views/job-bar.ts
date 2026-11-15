@@ -1,14 +1,9 @@
+import { formatBytes } from '@ptt/core';
 import type { Actions } from '../actions.js';
 import { el } from '../dom.js';
 import { t } from '../i18n.js';
 import { icon, type IconName } from '../icons.js';
 import { state } from '../state.js';
-
-function formatBytes(bytes: number): string {
-  const mb = bytes / 1024 ** 2;
-  if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
-  return `${mb.toFixed(0)} MB`;
-}
 
 function button(
   iconName: IconName,

@@ -1,12 +1,7 @@
 import type { AppContext } from '../context.js';
 import { readJson, sendError, sendJson } from '../http.js';
 import type { Handler } from '../router.js';
-
-const SAFE_ID = /^[a-zA-Z0-9-]+$/;
-
-function validId(value: string | undefined): value is string {
-  return !!value && SAFE_ID.test(value);
-}
+import { isSafeId } from '../validation.js';
 
 export function projectsRoute(context: AppContext): Handler {
   return async ({ res }) => {
@@ -35,7 +30,7 @@ export function createProjectRoute(context: AppContext): Handler {
 
 export function projectRoute(context: AppContext): Handler {
   return async ({ params, res }) => {
-    if (!validId(params.id)) {
+    if (!isSafeId(params.id)) {
       sendError(res, 400, 'error.bad_request');
       return;
     }
@@ -55,7 +50,7 @@ interface NotesBody {
 
 export function saveNotesRoute(context: AppContext): Handler {
   return async ({ params, req, res }) => {
-    if (!validId(params.id)) {
+    if (!isSafeId(params.id)) {
       sendError(res, 400, 'error.bad_request');
       return;
     }
@@ -85,7 +80,7 @@ interface CreateConversationBody {
 
 export function createConversationRoute(context: AppContext): Handler {
   return async ({ params, req, res }) => {
-    if (!validId(params.id)) {
+    if (!isSafeId(params.id)) {
       sendError(res, 400, 'error.bad_request');
       return;
     }
@@ -110,7 +105,7 @@ export function createConversationRoute(context: AppContext): Handler {
 
 export function conversationRoute(context: AppContext): Handler {
   return async ({ params, res }) => {
-    if (!validId(params.id) || !validId(params.chatId)) {
+    if (!isSafeId(params.id) || !isSafeId(params.chatId)) {
       sendError(res, 400, 'error.bad_request');
       return;
     }
@@ -131,7 +126,7 @@ interface AppendMessageBody {
 
 export function appendMessageRoute(context: AppContext): Handler {
   return async ({ params, req, res }) => {
-    if (!validId(params.id) || !validId(params.chatId)) {
+    if (!isSafeId(params.id) || !isSafeId(params.chatId)) {
       sendError(res, 400, 'error.bad_request');
       return;
     }

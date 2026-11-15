@@ -1,4 +1,4 @@
-import { cacheTypeBytes, estimateMemory, type GgufModelInfo } from '@ptt/core';
+import { cacheTypeBytes, estimateMemory, formatBytes, type GgufModelInfo } from '@ptt/core';
 import type { Actions } from '../actions.js';
 import { el, option } from '../dom.js';
 import { t } from '../i18n.js';
@@ -19,12 +19,6 @@ type SortMode = (typeof SORT_MODES)[number];
 export interface Manage {
   element: HTMLElement;
   update(): void;
-}
-
-function formatBytes(bytes: number): string {
-  const gb = bytes / 1024 ** 3;
-  if (gb >= 1) return `${gb.toFixed(1)} GB`;
-  return `${(bytes / 1024 ** 2).toFixed(0)} MB`;
 }
 
 function variantLabel(variant: string): string {

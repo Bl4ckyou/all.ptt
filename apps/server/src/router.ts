@@ -29,7 +29,11 @@ function match(segments: string[], path: string[]): Record<string, string> | nul
     const segment = segments[index];
     const value = path[index];
     if (segment.startsWith(':')) {
-      params[segment.slice(1)] = decodeURIComponent(value);
+      try {
+        params[segment.slice(1)] = decodeURIComponent(value);
+      } catch {
+        return null;
+      }
     } else if (segment !== value) {
       return null;
     }

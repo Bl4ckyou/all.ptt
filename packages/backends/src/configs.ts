@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
+import { readJsonFile, writeJsonFile } from './json-file.js';
 import type { SettingValue } from './types.js';
 
 export interface ModelConfig {
@@ -15,11 +15,7 @@ export function configsPath(root: string): string {
 }
 
 export async function readModelConfigs(root: string): Promise<ModelConfigMap> {
-  try {
-    return JSON.parse(await readFile(configsPath(root), 'utf8')) as ModelConfigMap;
-  } catch {
-    return {};
-  }
+  return (await readJsonFile<ModelConfigMap>(configsPath(root))) ?? {};
 }
 
 export async function readModelConfig(root: string, path: string): Promise<ModelConfig | null> {
@@ -36,7 +32,6 @@ export async function writeModelConfig(
   const record: ModelConfig = { ...config, updatedAt: new Date().toISOString() };
   configs[path] = record;
 
-  await mkdir(dirname(configsPath(root)), { recursive: true });
-  await writeFile(configsPath(root), `${JSON.stringify(configs, null, 2)}\n`);
+  await writeJsonFile(configsPath(root), configs);
   return record;
 }

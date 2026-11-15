@@ -1,9 +1,10 @@
-import { dirname, isAbsolute, sep } from 'node:path';
+import { dirname, isAbsolute } from 'node:path';
 import { stat } from 'node:fs/promises';
-import { listModelDirectories, readGgufInfo, revealPath, scanLocalFiles } from '@ptt/backends';
+import { listModelDirectories, revealPath, scanLocalFiles } from '@ptt/backends';
 import type { AppContext } from '../context.js';
 import { readJson, sendError, sendJson } from '../http.js';
 import type { Handler } from '../router.js';
+import { isWithin } from '../validation.js';
 
 export function localModelsRoute(context: AppContext): Handler {
   return async ({ res }) => {
@@ -17,23 +18,6 @@ export function localModelsRoute(context: AppContext): Handler {
       auxiliary: files.auxiliary,
       directories,
     });
-  };
-}
-
-export function modelInfoRoute(_context: AppContext): Handler {
-  return async ({ url, res }) => {
-    const path = url.searchParams.get('path');
-    if (!path || !isAbsolute(path) || !path.toLowerCase().endsWith('.gguf')) {
-      sendError(res, 400, 'error.bad_request');
-      return;
-    }
-
-    try {
-      const info = await readGgufInfo(path);
-      sendJson(res, 200, { info });
-    } catch (error) {
-      sendJson(res, 500, { error: 'error.gguf', message: (error as Error).message });
-    }
   };
 }
 
@@ -66,9 +50,7 @@ export function revealModelRoute(context: AppContext): Handler {
 
     const directory = info.isDirectory() ? body.path : dirname(body.path);
     const allowed = await listModelDirectories(context.modelDirs);
-    const permitted = allowed.some(
-      (base) => directory === base || directory.startsWith(`${base}${sep}`),
-    );
+    const permitted = allowed.some((base) => isWithin(directory, base));
 
     if (!permitted) {
       sendError(res, 403, 'error.forbidden');

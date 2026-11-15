@@ -1,5 +1,6 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { readJsonFile } from './json-file.js';
 import type { InstalledState, InstalledVariant } from './types.js';
 
 export function backendDir(root: string, id: string): string {
@@ -15,19 +16,15 @@ function emptyState(backend: string): InstalledState {
 }
 
 export async function readInstalledState(root: string, id: string): Promise<InstalledState> {
-  try {
-    const raw = JSON.parse(await readFile(installedStatePath(root, id), 'utf8')) as Partial<InstalledState> & {
-      target?: string;
-      variant?: string;
-    };
+  const raw = await readJsonFile<
+    Partial<InstalledState> & { target?: string; variant?: string }
+  >(installedStatePath(root, id));
 
-    if (raw.variants) return { backend: id, variants: raw.variants };
-    if (raw.target) {
-      const record = raw as unknown as InstalledVariant;
-      return { backend: id, variants: { [raw.target]: { ...record, variant: raw.variant ?? 'auto', legacy: true } } };
-    }
-  } catch {
-    // no state yet
+  if (!raw) return emptyState(id);
+  if (raw.variants) return { backend: id, variants: raw.variants };
+  if (raw.target) {
+    const record = raw as unknown as InstalledVariant;
+    return { backend: id, variants: { [raw.target]: { ...record, variant: raw.variant ?? 'auto', legacy: true } } };
   }
   return emptyState(id);
 }

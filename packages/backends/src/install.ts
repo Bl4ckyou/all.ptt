@@ -1,9 +1,10 @@
 import { existsSync } from 'node:fs';
 import { createWriteStream } from 'node:fs';
-import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, rm } from 'node:fs/promises';
 import { once } from 'node:events';
 import { dirname, join } from 'node:path';
 import { extractArchive } from './archive.js';
+import { writeJsonFile } from './json-file.js';
 import { variantTargets } from './detect.js';
 import { findBinary, makeExecutable } from './find-binary.js';
 import { fetchReleaseByTag, fetchReleases, toAssets, type GithubRelease } from './github.js';
@@ -22,6 +23,8 @@ import type {
   SyncResult,
   Target,
 } from './types.js';
+
+export { formatBytes } from '@ptt/core';
 
 export interface DownloadControl {
   wait(): Promise<void>;
@@ -329,15 +332,10 @@ export async function syncBackend(options: SyncOptions): Promise<SyncResult> {
 
   const directory = backendDir(root, id);
   await mkdir(directory, { recursive: true });
-  await writeFile(installedStatePath(root, id), `${JSON.stringify(state, null, 2)}\n`);
+  await writeJsonFile(installedStatePath(root, id), state);
   await prune(directory, desired);
 
   return { id, records };
-}
-
-export function formatBytes(bytes: number | undefined): string {
-  if (!bytes) return 'unknown size';
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export type { ReleaseAsset };
