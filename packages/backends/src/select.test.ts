@@ -65,6 +65,32 @@ describe('selectAsset', () => {
     expect(result?.runtime?.name).toBe('cudart-llama-bin-win-cuda-12.4-x64.zip');
   });
 
+  it('pairs ik_llama cudart variants with the matching cpu build', () => {
+    const main = 'ik_llama-main-b4608-a49a5d7-bin-ubuntu-cuda-12.8-x64-avx2.zip';
+    const cudart = 'ik_llama-cudart-main-b4608-a49a5d7-bin-ubuntu-cuda-12.8-x64-avx2.zip';
+    const result = selectAsset(
+      [asset(cudart), asset(main)],
+      manifest.backends['ik-llama-cpp'].selection,
+      ['linux-x64-cuda'],
+      context,
+    );
+    expect(result?.asset.name).toBe(main);
+    expect(result?.runtime?.name).toBe(cudart);
+  });
+
+  it('does not pick the legacy ik_llama cudart bundle as the main asset', () => {
+    const main = 'ik_llama-main-b4471-4c5c685-bin-win-cuda-12.8-x64-avx2.zip';
+    const legacy = 'ik_llama-main-b4471-4c5c685-cudart-llama-bin-win-cuda-12.8-x64-avx2.zip';
+    const result = selectAsset(
+      [asset(legacy), asset(main)],
+      manifest.backends['ik-llama-cpp'].selection,
+      ['win-x64-cuda'],
+      { ...context, os: 'win' },
+    );
+    expect(result?.asset.name).toBe(main);
+    expect(result?.runtime?.name).toBe(legacy);
+  });
+
   it('ignores cudart-only assets', () => {
     const result = selectAsset(
       [

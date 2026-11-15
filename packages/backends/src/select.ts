@@ -45,11 +45,15 @@ export function selectAsset(
         .sort((a, b) => a.rank - b.rank || a.index - b.index)
         .map((entry) => entry.asset);
 
-      const runtime = rule.runtime
-        ? assets.find(
+      const runtimeCandidates = rule.runtime
+        ? assets.filter(
             (asset) => asset !== ordered[0] && toRegExp(rule.runtime!, context).test(asset.name),
           )
-        : undefined;
+        : [];
+      const binSuffix = ordered[0].name.match(/(-bin-.*)$/)?.[1];
+      const runtime = binSuffix
+        ? runtimeCandidates.find((asset) => asset.name.endsWith(binSuffix)) ?? runtimeCandidates[0]
+        : runtimeCandidates[0];
 
       return { target, asset: ordered[0], runtime };
     }
