@@ -114,8 +114,9 @@ Backend settings that come from `--help` (no curated i18n key) can be
 translated on demand. In **Manage → Advanced → Raw binary options**:
 
 - **Download PLaMo 3** fetches the official GGUF (Q4_K_M, ~0.57 GB, 53
-  languages including Simplified and Traditional Chinese), starts it through
-  your installed llama.cpp backend and uses its native chat template.
+  languages including Simplified and Traditional Chinese). It is stored in the
+  standard Hugging Face cache (`models--pfnet--…/blobs`, `snapshots`, `refs`),
+  so other projects can reuse it and it is found automatically next time.
 - Or point to any local GGUF translation model.
 - Translations are cached per language under `.ptt/translations/`; only new
   options are translated after an update.

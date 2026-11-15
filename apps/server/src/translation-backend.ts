@@ -1,5 +1,5 @@
 import { createWriteStream } from 'node:fs';
-import { mkdir, readdir, rename, stat } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import {
@@ -17,8 +17,9 @@ import { ProviderTranslator, type MutableTranslator, type Translator } from './t
 
 const PROVIDER_ID = 'ptt-translation';
 const MODEL_ALIAS = 'ptt-translation';
-const PLAMO_URL =
-  'https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF/resolve/main/plamo-3-translate-0.8b-Q4_K_M.gguf';
+const PLAMO_REPO = 'pfnet/plamo-3-translate-0.8b-GGUF';
+const PLAMO_FILE = 'plamo-3-translate-0.8b-Q4_K_M.gguf';
+const PLAMO_URL = `https://huggingface.co/${PLAMO_REPO}/resolve/main/${PLAMO_FILE}`;
 
 const PLAMO_LANGUAGES = [
   'ja', 'en', 'zh-hans', 'zh-hant', 'ko', 'ar', 'az', 'be', 'bg', 'bn', 'ca', 'ceb', 'de',
@@ -98,14 +99,17 @@ async function findInDirectory(
   return null;
 }
 
-export async function findTranslationModel(directories: string[]): Promise<string | null> {
-  const hub =
+function huggingFaceHubDir(): string {
+  return (
     process.env.HF_HUB_CACHE ??
     (process.env.HF_HOME
       ? join(process.env.HF_HOME, 'hub')
-      : join(homedir(), '.cache', 'huggingface', 'hub'));
+      : join(homedir(), '.cache', 'huggingface', 'hub'))
+  );
+}
 
-  const bases = new Set<string>([hub, ...directories]);
+export async function findTranslationModel(directories: string[]): Promise<string | null> {
+  const bases = new Set<string>([huggingFaceHubDir(), ...directories]);
   for (const base of bases) {
     const found = await findInDirectory(base, 6, { left: 4000 });
     if (found) return found;
@@ -160,32 +164,65 @@ class NativeTranslator implements Translator {
   }
 }
 
-async function download(url: string, destination: string, onProgress: (done: number, total: number) => void): Promise<void> {
-  await mkdir(dirname(destination), { recursive: true });
-  const temporary = `${destination}.part`;
-  const response = await fetch(url);
-  if (!response.ok || !response.body) {
-    throw new Error(`download failed: ${response.status}`);
+async function downloadToHuggingFaceCache(
+  onProgress: (done: number, total: number) => void,
+): Promise<string> {
+  const head = await fetch(PLAMO_URL, { method: 'HEAD', redirect: 'follow' });
+  if (!head.ok) throw new Error(`download failed: ${head.status}`);
+
+  const total = Number(head.headers.get('content-length') ?? 0);
+  const etag = (head.headers.get('x-linked-etag') ?? head.headers.get('etag') ?? '')
+    .replace(/"/g, '')
+    .trim();
+
+  const model = await fetch(`https://huggingface.co/api/models/${PLAMO_REPO}`);
+  if (!model.ok) throw new Error(`cannot resolve ${PLAMO_REPO}`);
+  const revision = ((await model.json()) as { sha?: string }).sha ?? 'main';
+
+  const repoDir = join(huggingFaceHubDir(), `models--${PLAMO_REPO.replace('/', '--')}`);
+  const blobs = join(repoDir, 'blobs');
+  const snapshot = join(repoDir, 'snapshots', revision);
+  const blob = join(blobs, etag || PLAMO_FILE);
+  const target = join(snapshot, PLAMO_FILE);
+
+  await mkdir(blobs, { recursive: true });
+  await mkdir(snapshot, { recursive: true });
+  await mkdir(join(repoDir, 'refs'), { recursive: true });
+  await writeFile(join(repoDir, 'refs', 'main'), revision);
+
+  const existing = await stat(blob).catch(() => null);
+  if (!existing || (total > 0 && existing.size !== total)) {
+    const temporary = `${blob}.incomplete`;
+    const response = await fetch(PLAMO_URL);
+    if (!response.ok || !response.body) throw new Error(`download failed: ${response.status}`);
+
+    const output = createWriteStream(temporary);
+    const reader = response.body.getReader();
+    let done = 0;
+    for (;;) {
+      const { done: finished, value } = await reader.read();
+      if (finished) break;
+      const buffer = Buffer.from(value);
+      if (!output.write(buffer)) {
+        await new Promise<void>((resolve) => output.once('drain', resolve));
+      }
+      done += buffer.length;
+      onProgress(done, total);
+    }
+    await new Promise<void>((resolve, reject) => {
+      output.end((error?: Error | null) => (error ? reject(error) : resolve()));
+    });
+    await rename(temporary, blob);
   }
 
-  const total = Number(response.headers.get('content-length') ?? 0);
-  const output = createWriteStream(temporary);
-  const reader = response.body.getReader();
-  let done = 0;
-  for (;;) {
-    const { done: finished, value } = await reader.read();
-    if (finished) break;
-    const buffer = Buffer.from(value);
-    if (!output.write(buffer)) {
-      await new Promise<void>((resolve) => output.once('drain', resolve));
-    }
-    done += buffer.length;
-    onProgress(done, total);
+  try {
+    await symlink(join('..', '..', 'blobs', etag || PLAMO_FILE), target);
+  } catch {
+    await rm(target, { force: true });
+    await copyFile(blob, target);
   }
-  await new Promise<void>((resolve, reject) => {
-    output.end((error?: Error | null) => (error ? reject(error) : resolve()));
-  });
-  await rename(temporary, destination);
+
+  return target;
 }
 
 export class TranslationManager {
@@ -239,10 +276,10 @@ export class TranslationManager {
         return;
       }
 
-      await download(PLAMO_URL, destination, (done, total) => {
+      const modelPath = await downloadToHuggingFaceCache((done, total) => {
         this.state = { status: 'downloading', progress: done, total };
       });
-      await this.enableWithModel(destination);
+      await this.enableWithModel(modelPath);
     })().catch((error: Error) => {
       this.state = { status: 'error', progress: 0, total: 0, error: error.message };
     });
