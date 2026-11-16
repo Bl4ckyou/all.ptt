@@ -285,3 +285,7 @@ backend-no-assets = No asset found.
 backend-load-failed = Could not load releases.
 backend-remove = Remove backend
 backend-external = External
+manage-sections = Sections
+manage-page-prev = Previous page
+manage-page-next = Next page
+manage-page-status = Page { $page } of { $pages }

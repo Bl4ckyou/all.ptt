@@ -285,3 +285,7 @@ backend-no-assets = No se encontró ningún archivo.
 backend-load-failed = No se pudieron cargar las versiones.
 backend-remove = Eliminar backend
 backend-external = Externo
+manage-sections = Secciones
+manage-page-prev = Página anterior
+manage-page-next = Página siguiente
+manage-page-status = Página { $page } de { $pages }

@@ -23,6 +23,7 @@ import type {
 const FAVORITES_KEY = 'ptt.favorites';
 const SORT_MODES = ['favorites', 'name-asc', 'name-desc', 'size-asc', 'size-desc'] as const;
 type SortMode = (typeof SORT_MODES)[number];
+type ManageTab = 'models' | 'backends';
 
 export interface Manage {
   element: HTMLElement;
@@ -52,6 +53,9 @@ export function createManage(actions: Actions): Manage {
   let launchBackend: string | null = null;
   let search = '';
   let sortMode: SortMode = 'favorites';
+  let activeTab: ManageTab = 'models';
+  let modelPage = 0;
+  let modelPageSize = 0;
 
   let configModel: LocalModelInfo | null = null;
   let configBackend: string | null = null;
@@ -76,10 +80,15 @@ export function createManage(actions: Actions): Manage {
   let extraInputEl: HTMLInputElement | null = null;
   let saveButtonEl: HTMLButtonElement | null = null;
 
-  function button(iconName: IconName, label: string, onClick: () => void, danger = false): HTMLButtonElement {
+  function button(
+    iconName: IconName,
+    label: string,
+    onClick: () => void,
+    variant: 'default' | 'primary' | 'danger' = 'default',
+  ): HTMLButtonElement {
     return el(
       'button',
-      { class: `button${danger ? ' danger' : ''}`, on: { click: onClick } },
+      { class: `button${variant === 'default' ? '' : ` ${variant}`}`, on: { click: onClick } },
       [icon(iconName), label],
     );
   }
@@ -137,18 +146,36 @@ export function createManage(actions: Actions): Manage {
       if (hw.cpu) parts.push(hw.cpu.toUpperCase());
       parts.push(hw.gpu.vendor);
     }
-    return el('div', { class: 'manage-card' }, [
-      el('h3', { class: 'manage-title' }, [icon('cpu', 'icon small'), t('manage-hardware')]),
-      el('p', { class: 'manage-line', text: parts.join(' · ') || '—' }),
+    return el('div', { class: 'status-block status-hardware' }, [
+      el('h3', { class: 'status-label' }, [icon('cpu', 'icon small'), t('manage-hardware')]),
+      el('p', { class: 'status-value', text: parts.join(' · ') || '—' }),
       el('p', {
-        class: 'manage-line muted',
+        class: 'status-hint',
         text: `${t('manage-recommended')}: ${state.recommended ?? '—'}`,
       }),
     ]);
   }
 
+  function backendChoice(backend: BackendInfo, choice: string) {
+    const current = backend.installed.find((entry) => entry.variant === choice);
+    const latestTag = current ? state.backendLatest[backend.id]?.[current.target] : undefined;
+    const upToDate = Boolean(current && latestTag && latestTag === current.tag);
+    const updateTag = current && latestTag && latestTag !== current.tag ? latestTag : null;
+    return { current, latestTag, upToDate, updateTag };
+  }
+
+  function selectedChoice(backend: BackendInfo): string {
+    return variantChoices.get(backend.id) ?? backend.defaultVariant;
+  }
+
+  function hasBackendUpdate(backend: BackendInfo): boolean {
+    return (
+      backend.kind !== 'local' && backendChoice(backend, selectedChoice(backend)).updateTag !== null
+    );
+  }
+
   function backendCard(backend: BackendInfo): HTMLElement {
-    const choice = variantChoices.get(backend.id) ?? backend.defaultVariant;
+    const choice = selectedChoice(backend);
     const installed = backend.installed.length > 0;
     const isLocal = backend.kind === 'local';
 
@@ -165,10 +192,7 @@ export function createManage(actions: Actions): Manage {
       backend.variants.map((variant) => option(variant, variantLabel(variant), variant === choice)),
     );
 
-    const current = backend.installed.find((entry) => entry.variant === choice);
-    const latestTag = current ? state.backendLatest[backend.id]?.[current.target] : undefined;
-    const upToDate = Boolean(current && latestTag && latestTag === current.tag);
-    const updateTag = current && latestTag && latestTag !== current.tag ? latestTag : null;
+    const { current, upToDate, updateTag } = backendChoice(backend, choice);
 
     const action = isLocal
       ? el('span', { class: 'status-pill good', text: t('backend-external') })
@@ -180,7 +204,7 @@ export function createManage(actions: Actions): Manage {
     if (action instanceof HTMLButtonElement) action.disabled = upToDate;
 
     const remove = backend.custom
-      ? button('x', t('backend-remove'), () => void actions.removeBackend(backend.id), true)
+      ? button('x', t('backend-remove'), () => void actions.removeBackend(backend.id), 'danger')
       : null;
 
     const status = installed
@@ -200,7 +224,7 @@ export function createManage(actions: Actions): Manage {
         ])
       : el('p', { class: 'manage-line muted', text: t('manage-not-installed') });
 
-    return el('div', { class: 'backend-card' }, [
+    return el('div', { class: 'backend-card notched' }, [
       el('div', { class: 'manage-head' }, [
         el('span', { class: 'manage-name' }, [icon('server', 'icon small'), backend.label]),
         el('span', { class: 'manage-line muted', text: backend.repo }),
@@ -1214,7 +1238,7 @@ export function createManage(actions: Actions): Manage {
   function modelCard(model: LocalModelInfo): HTMLElement {
     const favorite = favorites.has(model.path);
 
-    return el('div', { class: 'model-card' }, [
+    return el('div', { class: 'model-card notched' }, [
       el('div', { class: 'model-card-head' }, [
         el('span', { class: 'model-name', attrs: { title: model.path } }, [
           icon('model', 'icon small'),
@@ -1248,6 +1272,17 @@ export function createManage(actions: Actions): Manage {
     ]);
   }
 
+  function computeModelPageSize(): number {
+    const style = getComputedStyle(element);
+    const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+    const available = Math.max(0, element.clientWidth - padding);
+    const minWidth = parseFloat(style.getPropertyValue('--model-column-min')) || 280;
+    const gap = parseFloat(style.getPropertyValue('--model-column-gap')) || 10;
+    const rows = parseFloat(style.getPropertyValue('--model-rows')) || 3;
+    const columns = Math.max(1, Math.floor((available + gap) / (minWidth + gap)));
+    return columns * rows;
+  }
+
   function visibleModels(): LocalModelInfo[] {
     const term = search.trim().toLowerCase();
     const models = state.localModels.filter(
@@ -1271,7 +1306,7 @@ export function createManage(actions: Actions): Manage {
     return sorted;
   }
 
-  function modelsCard(): HTMLElement {
+  function modelsPanel(): HTMLElement {
     const installed = installedBackends();
     if (!launchBackend || !installed.some((backend) => backend.id === launchBackend)) {
       launchBackend = installed[0]?.id ?? null;
@@ -1312,6 +1347,11 @@ export function createManage(actions: Actions): Manage {
 
     const visible = visibleModels();
     const term = search.trim();
+    const pageSize = computeModelPageSize();
+    modelPageSize = pageSize;
+    const pageCount = Math.max(1, Math.ceil(visible.length / pageSize));
+    modelPage = Math.min(Math.max(modelPage, 0), pageCount - 1);
+    const pageModels = visible.slice(modelPage * pageSize, modelPage * pageSize + pageSize);
 
     const searchInput = el('input', {
       class: 'control model-search',
@@ -1320,6 +1360,7 @@ export function createManage(actions: Actions): Manage {
       on: {
         input: (event) => {
           search = (event.target as HTMLInputElement).value;
+          modelPage = 0;
           update();
         },
       },
@@ -1333,6 +1374,7 @@ export function createManage(actions: Actions): Manage {
         on: {
           change: (event) => {
             sortMode = (event.target as HTMLSelectElement).value as SortMode;
+            modelPage = 0;
             update();
           },
         },
@@ -1340,67 +1382,162 @@ export function createManage(actions: Actions): Manage {
       SORT_MODES.map((mode) => option(mode, t(`sort-${mode}`), mode === sortMode)),
     );
 
-    const list =
+    const grid =
       visible.length === 0
         ? el('p', {
-            class: 'manage-line muted',
+            class: 'manage-empty',
             text: term.length > 0 ? t('manage-no-results') : t('manage-no-models'),
           })
-        : el('div', { class: 'model-scroll' }, [
-            el('div', { class: 'model-grid' }, visible.map(modelCard)),
-          ]);
+        : el('div', { class: 'model-grid' }, pageModels.map(modelCard));
 
-    const header = el('div', { class: 'manage-head manage-head-row' }, [
-      el('h3', { class: 'manage-title' }, [icon('folder', 'icon small'), t('manage-local-models')]),
-      el('div', { class: 'model-actions' }, tools),
-    ]);
-
-    const nodes: Node[] = [header];
+    const nodes: Node[] = [];
 
     if (state.localModels.length > 0) {
       nodes.push(
-        el('div', { class: 'model-tools' }, [
+        el('div', { class: 'manage-toolbar' }, [
           el('label', { class: 'search' }, [icon('search', 'icon small'), searchInput]),
           sortSelect,
           ...(backendSwitch ? [backendSwitch] : []),
+          el('div', { class: 'model-actions' }, tools),
         ]),
       );
     }
 
-    if (installed.length === 0) {
-      nodes.push(el('p', { class: 'manage-line muted', text: t('manage-not-installed') }));
+    nodes.push(
+      el('div', { class: 'manage-meta' }, [
+        el('span', { text: t('manage-model-count', { count: visible.length }) }),
+        ...(installed.length === 0
+          ? [el('span', { class: 'manage-note', text: t('manage-not-installed') })]
+          : []),
+      ]),
+    );
+    nodes.push(grid);
+
+    if (pageCount > 1) {
+      const previous = iconButton('chevronLeft', t('manage-page-prev'), () => {
+        modelPage = Math.max(0, modelPage - 1);
+        update();
+      });
+      previous.disabled = modelPage === 0;
+      const next = iconButton('chevronRight', t('manage-page-next'), () => {
+        modelPage = Math.min(pageCount - 1, modelPage + 1);
+        update();
+      });
+      next.disabled = modelPage >= pageCount - 1;
+      nodes.push(
+        el('nav', {
+          class: 'manage-pager',
+          attrs: {
+            'aria-label': t('manage-page-status', { page: modelPage + 1, pages: pageCount }),
+          },
+        }, [
+          previous,
+          el('span', {
+            class: 'manage-page-label',
+            text: t('manage-page-status', { page: modelPage + 1, pages: pageCount }),
+          }),
+          next,
+        ]),
+      );
     }
 
-    nodes.push(
-      el('p', {
-        class: 'manage-line muted',
-        text: t('manage-model-count', { count: visible.length }),
-      }),
-    );
-    nodes.push(list);
+    return el('div', {
+      class: 'manage-panel',
+      attrs: { role: 'tabpanel', id: 'manage-panel-models', 'aria-labelledby': 'manage-tab-models' },
+    }, nodes);
+  }
 
-    return el('div', { class: 'manage-card' }, nodes);
+  function backendsPanel(): HTMLElement {
+    return el('div', {
+      class: 'manage-panel',
+      attrs: { role: 'tabpanel', id: 'manage-panel-backends', 'aria-labelledby': 'manage-tab-backends' },
+    }, [
+      el('div', { class: 'backend-grid' }, state.backends.map(backendCard)),
+    ]);
+  }
+
+  function manageTab(
+    tab: ManageTab,
+    label: string,
+    count: number,
+    iconName: IconName,
+    alert = false,
+  ): HTMLElement {
+    const selected = activeTab === tab;
+    return el('button', {
+      class: `manage-tab${selected ? ' active' : ''}`,
+      attrs: {
+        type: 'button',
+        role: 'tab',
+        id: `manage-tab-${tab}`,
+        'aria-controls': `manage-panel-${tab}`,
+        'aria-selected': String(selected),
+        tabindex: selected ? '0' : '-1',
+      },
+      on: {
+        click: () => {
+          activeTab = tab;
+          update();
+        },
+      },
+    }, [
+      icon(iconName, 'icon small'),
+      el('span', { text: label }),
+      el('span', { class: 'manage-tab-count', text: String(count) }),
+      ...(alert
+        ? [el('span', { class: 'manage-tab-alert', attrs: { 'aria-hidden': 'true' } })]
+        : []),
+    ]);
+  }
+
+  function manageTabs(): HTMLElement {
+    const order: ManageTab[] = ['models', 'backends'];
+    return el('div', {
+      class: 'manage-tabs',
+      attrs: { role: 'tablist', 'aria-label': t('manage-sections') },
+      on: {
+        keydown: (event) => {
+          const key = (event as KeyboardEvent).key;
+          if (key !== 'ArrowLeft' && key !== 'ArrowRight') return;
+          event.preventDefault();
+          const direction = key === 'ArrowRight' ? 1 : -1;
+          const index = order.indexOf(activeTab);
+          activeTab = order[(index + direction + order.length) % order.length];
+          update();
+          element.querySelector<HTMLElement>(`#manage-tab-${activeTab}`)?.focus();
+        },
+      },
+    }, [
+      manageTab('models', t('sidebar-models'), state.localModels.length, 'model'),
+      manageTab(
+        'backends',
+        t('backends-title'),
+        state.backends.length,
+        'server',
+        state.backends.some(hasBackendUpdate),
+      ),
+    ]);
   }
 
   function runningCard(): HTMLElement {
     const rows = state.running.map((run) =>
-      el('div', { class: 'model-row' }, [
-        el('div', { class: 'model-info' }, [
-          el('span', { class: 'model-name' }, [icon('server', 'icon small'), `${run.providerId} · :${run.port}`]),
+      el('div', { class: 'run-row' }, [
+        el('div', { class: 'run-info' }, [
+          el('span', { class: 'run-name' }, [icon('server', 'icon small'), `${run.providerId} · :${run.port}`]),
           el('span', {
-            class: 'manage-line muted',
+            class: 'run-model',
             text: run.modelPath.split(/[/\\]/).pop() ?? run.modelPath,
           }),
         ]),
-        button('stop', t('manage-stop'), () => void actions.stopBackend(run.providerId), true),
+        button('stop', t('manage-stop'), () => void actions.stopBackend(run.providerId), 'danger'),
       ]),
     );
 
-    return el('div', { class: `manage-card${rows.length > 0 ? ' running-card' : ''}` }, [
-      el('h3', { class: 'manage-title' }, [icon('server', 'icon small'), t('manage-running')]),
+    return el('div', { class: `status-block status-running${rows.length > 0 ? ' is-active' : ''}` }, [
+      el('h3', { class: 'status-label' }, [icon('server', 'icon small'), t('manage-running')]),
       rows.length === 0
-        ? el('p', { class: 'manage-line muted', text: t('manage-none-running') })
-        : el('div', { class: 'model-list' }, rows),
+        ? el('p', { class: 'status-hint', text: t('manage-none-running') })
+        : el('div', { class: 'run-list' }, rows),
     ]);
   }
 
@@ -1414,8 +1551,11 @@ export function createManage(actions: Actions): Manage {
       el('div', { class: 'manage-top' }, [
         el('h2', { class: 'manage-heading' }, [icon('manage', 'icon heading'), t('nav-manage')]),
         el('div', { class: 'manage-actions' }, [
-          button('plus', t('backend-add'), () =>
-            openAddBackendModal(actions, () => void actions.refreshBackends()),
+          button(
+            'plus',
+            t('backend-add'),
+            () => openAddBackendModal(actions, () => void actions.refreshBackends()),
+            'primary',
           ),
           button('download', t('manage-update-project'), () => void actions.updateProject()),
           button('refresh', t('manage-update-all'), () => void actions.updateBackends()),
@@ -1424,25 +1564,19 @@ export function createManage(actions: Actions): Manage {
     ];
 
     if (state.busy) nodes.push(el('p', { class: 'manage-busy' }, [icon('sparkles', 'icon small'), t(state.busy)]));
-    if (state.error) nodes.push(el('p', { class: 'error' }, [icon('x'), t(state.error)]));
+    if (state.error) nodes.push(el('p', { class: 'manage-error' }, [icon('x'), t(state.error)]));
     if (state.updateReady) {
       nodes.push(
-        el('div', { class: 'manage-card' }, [
+        el('div', { class: 'manage-notice' }, [
           el('p', { class: 'manage-line' }, [icon('check', 'icon small'), t('manage-update-ready')]),
           button('refresh', t('manage-restart'), () => void actions.restartProject()),
         ]),
       );
     }
 
-    nodes.push(hardwareCard());
-    nodes.push(runningCard());
-    nodes.push(
-      el('div', { class: 'manage-card' }, [
-        el('h3', { class: 'manage-title' }, [icon('server', 'icon small'), t('backends-title')]),
-        ...state.backends.map(backendCard),
-      ]),
-    );
-    nodes.push(modelsCard());
+    nodes.push(el('div', { class: 'manage-status' }, [hardwareCard(), runningCard()]));
+    nodes.push(manageTabs());
+    nodes.push(activeTab === 'models' ? modelsPanel() : backendsPanel());
 
     element.replaceChildren(...nodes);
 
@@ -1452,6 +1586,12 @@ export function createManage(actions: Actions): Manage {
       if (caret !== null) input?.setSelectionRange(caret, caret);
     }
   }
+
+  const resizeObserver = new ResizeObserver(() => {
+    if (element.hidden || computeModelPageSize() === modelPageSize) return;
+    update();
+  });
+  resizeObserver.observe(element);
 
   return { element, update };
 }

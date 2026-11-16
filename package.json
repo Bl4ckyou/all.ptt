@@ -29,6 +29,7 @@
     "backend:update": "tsx scripts/backends.ts update",
     "pretest": "npm run assets",
     "test": "vitest run",
+    "test:ui": "vitest run --config vitest.ui.config.ts",
     "pretypecheck": "npm run assets",
     "typecheck": "tsc --noEmit",
     "check:i18n": "node scripts/check-i18n.mjs",

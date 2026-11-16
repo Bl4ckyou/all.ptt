@@ -95,7 +95,18 @@ export function openAddBackendModal(actions: Actions, onDone: () => void): void 
     githubTab.classList.toggle('active', mode === 'github');
   }
 
-  const close = (): void => overlay.remove();
+  const close = (): void => {
+    document.removeEventListener('keydown', onKeyDown);
+    overlay.remove();
+  };
+
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    close();
+  };
+
+  document.addEventListener('keydown', onKeyDown);
 
   const addButton = el('button', {
     class: 'button',

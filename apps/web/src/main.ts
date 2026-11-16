@@ -683,11 +683,11 @@ async function bootstrap(): Promise<void> {
   root.replaceChildren(createLeafLayer(), el('div', { class: 'shell' }, [jobBar.element, layout]));
 
   subscribe(() => {
+    syncView();
     sidebar.update();
     chat.update();
     manage.update();
     jobBar.update();
-    syncView();
   });
 
   syncView();

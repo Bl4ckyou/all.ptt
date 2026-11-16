@@ -285,3 +285,7 @@ backend-no-assets = ファイルが見つかりません。
 backend-load-failed = リリースを読み込めませんでした。
 backend-remove = バックエンドを削除
 backend-external = 外部
+manage-sections = セクション
+manage-page-prev = 前のページ
+manage-page-next = 次のページ
+manage-page-status = { $page } / { $pages } ページ
