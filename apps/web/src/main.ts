@@ -43,7 +43,7 @@ import {
 } from './api.js';
 import { el } from './dom.js';
 import { createLeafLayer } from './flower.js';
-import { loadI18n, readStoredLocale, storeLocale } from './i18n.js';
+import { loadI18n, readStoredLocale, storeLocale, t } from './i18n.js';
 import { notify, state, subscribe } from './state.js';
 import type {
   BackendSettingsInfo,
@@ -255,34 +255,26 @@ async function updateBackendsAction(): Promise<void> {
   }
 }
 
-async function pauseJobAction(): Promise<void> {
+async function runJobAction(action: (id: string) => Promise<JobInfo>): Promise<void> {
   if (!state.job) return;
   try {
-    state.job = await pauseJobRequest(state.job.id);
+    state.job = await action(state.job.id);
     notify();
   } catch {
     // keep the current state
   }
+}
+
+async function pauseJobAction(): Promise<void> {
+  await runJobAction(pauseJobRequest);
 }
 
 async function resumeJobAction(): Promise<void> {
-  if (!state.job) return;
-  try {
-    state.job = await resumeJobRequest(state.job.id);
-    notify();
-  } catch {
-    // keep the current state
-  }
+  await runJobAction(resumeJobRequest);
 }
 
 async function cancelJobAction(): Promise<void> {
-  if (!state.job) return;
-  try {
-    state.job = await cancelJobRequest(state.job.id);
-    notify();
-  } catch {
-    // keep the current state
-  }
+  await runJobAction(cancelJobRequest);
 }
 
 async function updateProjectAction(): Promise<void> {
@@ -706,5 +698,5 @@ async function bootstrap(): Promise<void> {
 
 bootstrap().catch((error: unknown) => {
   console.error(error);
-  document.body.textContent = 'all.ptt failed to start.';
+  document.body.textContent = t('app-start-failed');
 });

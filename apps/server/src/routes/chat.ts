@@ -1,5 +1,5 @@
 import type { ChatMessage } from '@ptt/core';
-import { readJson, sendError } from '../http.js';
+import { sendError, readJsonOrError } from '../http.js';
 import type { ProviderRegistry } from '../providers.js';
 import type { Handler } from '../router.js';
 
@@ -34,13 +34,8 @@ function isValidBody(
 
 export function chatRoute(registry: ProviderRegistry): Handler {
   return async ({ req, res }) => {
-    let body: ChatBody;
-    try {
-      body = await readJson<ChatBody>(req);
-    } catch {
-      sendError(res, 400, 'error.bad_request');
-      return;
-    }
+    const body = await readJsonOrError<ChatBody>(req, res);
+    if (!body) return;
 
     if (!isValidBody(body)) {
       sendError(res, 400, 'error.bad_request');

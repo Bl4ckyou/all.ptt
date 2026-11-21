@@ -14,7 +14,7 @@ import {
 } from '@ptt/backends';
 import { OpenAICompatibleProvider } from '@ptt/providers';
 import type { AppContext } from '../context.js';
-import { readJson, sendError, sendJson } from '../http.js';
+import { sendError, sendJson, readJsonOrFallback, readJsonOrError } from '../http.js';
 import type { Handler } from '../router.js';
 
 function variantsFor(backend: BackendEntry): string[] {
@@ -180,13 +180,8 @@ interface InstallBody {
 
 export function installBackendRoute(context: AppContext): Handler {
   return async ({ req, res }) => {
-    let body: InstallBody;
-    try {
-      body = await readJson<InstallBody>(req);
-    } catch {
-      sendError(res, 400, 'error.bad_request');
-      return;
-    }
+    const body = await readJsonOrError<InstallBody>(req, res);
+    if (!body) return;
 
     const backend = body.id ? context.manifest.backends[body.id] : undefined;
     if (!body.id || !backend) {
@@ -218,12 +213,7 @@ interface UpdateBody {
 
 export function updateBackendsRoute(context: AppContext): Handler {
   return async ({ req, res }) => {
-    let body: UpdateBody = {};
-    try {
-      body = await readJson<UpdateBody>(req);
-    } catch {
-      // an empty body means "update everything"
-    }
+    const body = await readJsonOrFallback<UpdateBody>(req, {});
 
     const ids = body.id ? [body.id] : Object.keys(context.manifest.backends);
     const items = ids
@@ -283,13 +273,8 @@ interface LaunchBody {
 
 export function launchBackendRoute(context: AppContext): Handler {
   return async ({ req, res }) => {
-    let body: LaunchBody;
-    try {
-      body = await readJson<LaunchBody>(req);
-    } catch {
-      sendError(res, 400, 'error.bad_request');
-      return;
-    }
+    const body = await readJsonOrError<LaunchBody>(req, res);
+    if (!body) return;
 
     if (!body.modelPath || !body.modelPath.toLowerCase().endsWith('.gguf')) {
       sendError(res, 400, 'error.bad_model');
@@ -352,13 +337,8 @@ interface StopBody {
 
 export function stopBackendRoute(context: AppContext): Handler {
   return async ({ req, res }) => {
-    let body: StopBody;
-    try {
-      body = await readJson<StopBody>(req);
-    } catch {
-      sendError(res, 400, 'error.bad_request');
-      return;
-    }
+    const body = await readJsonOrError<StopBody>(req, res);
+    if (!body) return;
 
     if (!body.providerId) {
       sendError(res, 400, 'error.bad_request');

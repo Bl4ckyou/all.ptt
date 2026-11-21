@@ -289,3 +289,4 @@ manage-sections = Sections
 manage-page-prev = Previous page
 manage-page-next = Next page
 manage-page-status = Page { $page } of { $pages }
+app-start-failed = all.ptt failed to start.

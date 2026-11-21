@@ -289,3 +289,4 @@ manage-sections = セクション
 manage-page-prev = 前のページ
 manage-page-next = 次のページ
 manage-page-status = { $page } / { $pages } ページ
+app-start-failed = all.ptt を起動できませんでした。

@@ -1543,6 +1543,7 @@ export function createManage(actions: Actions): Manage {
 
   function update(): void {
     const active = document.activeElement;
+    const activeId = active instanceof HTMLElement && element.contains(active) ? active.id : '';
     const restoring =
       active instanceof HTMLInputElement && active.classList.contains('model-search');
     const caret = restoring ? active.selectionStart : null;
@@ -1580,6 +1581,9 @@ export function createManage(actions: Actions): Manage {
 
     element.replaceChildren(...nodes);
 
+    if (activeId) {
+      element.querySelector<HTMLElement>(`#${CSS.escape(activeId)}`)?.focus();
+    }
     if (restoring) {
       const input = element.querySelector<HTMLInputElement>('.model-search');
       input?.focus();

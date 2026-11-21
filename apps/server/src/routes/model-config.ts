@@ -5,7 +5,7 @@ import {
   type SettingValue,
 } from '@ptt/backends';
 import type { AppContext } from '../context.js';
-import { readJson, sendError, sendJson } from '../http.js';
+import { sendError, sendJson, readJsonOrError } from '../http.js';
 import type { Handler } from '../router.js';
 
 export function modelConfigRoute(context: AppContext): Handler {
@@ -39,13 +39,8 @@ function sanitizeSettings(input: Record<string, SettingValue>): Record<string, S
 
 export function saveModelConfigRoute(context: AppContext): Handler {
   return async ({ req, res }) => {
-    let body: SaveConfigBody;
-    try {
-      body = await readJson<SaveConfigBody>(req);
-    } catch {
-      sendError(res, 400, 'error.bad_request');
-      return;
-    }
+    const body = await readJsonOrError<SaveConfigBody>(req, res);
+    if (!body) return;
 
     if (!body.path || !isAbsolute(body.path) || !body.settings) {
       sendError(res, 400, 'error.bad_request');

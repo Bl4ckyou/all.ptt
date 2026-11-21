@@ -1,5 +1,5 @@
 import type { AppContext } from '../context.js';
-import { readJson, sendError, sendJson } from '../http.js';
+import { sendError, sendJson, readJsonOrFallback, readJsonOrError } from '../http.js';
 import type { Handler } from '../router.js';
 import { isSafeId } from '../validation.js';
 
@@ -15,13 +15,8 @@ interface CreateProjectBody {
 
 export function createProjectRoute(context: AppContext): Handler {
   return async ({ req, res }) => {
-    let body: CreateProjectBody;
-    try {
-      body = await readJson<CreateProjectBody>(req);
-    } catch {
-      sendError(res, 400, 'error.bad_request');
-      return;
-    }
+    const body = await readJsonOrError<CreateProjectBody>(req, res);
+    if (!body) return;
 
     const project = await context.projects.create(body.name ?? 'Project');
     sendJson(res, 201, { project });
@@ -55,13 +50,8 @@ export function saveNotesRoute(context: AppContext): Handler {
       return;
     }
 
-    let body: NotesBody;
-    try {
-      body = await readJson<NotesBody>(req);
-    } catch {
-      sendError(res, 400, 'error.bad_request');
-      return;
-    }
+    const body = await readJsonOrError<NotesBody>(req, res);
+    if (!body) return;
 
     const detail = await context.projects.get(params.id);
     if (!detail) {
@@ -85,12 +75,7 @@ export function createConversationRoute(context: AppContext): Handler {
       return;
     }
 
-    let body: CreateConversationBody = {};
-    try {
-      body = await readJson<CreateConversationBody>(req);
-    } catch {
-      // empty body is fine
-    }
+    const body = await readJsonOrFallback<CreateConversationBody>(req, {});
 
     const detail = await context.projects.get(params.id);
     if (!detail) {
@@ -131,13 +116,8 @@ export function appendMessageRoute(context: AppContext): Handler {
       return;
     }
 
-    let body: AppendMessageBody;
-    try {
-      body = await readJson<AppendMessageBody>(req);
-    } catch {
-      sendError(res, 400, 'error.bad_request');
-      return;
-    }
+    const body = await readJsonOrError<AppendMessageBody>(req, res);
+    if (!body) return;
 
     if (
       (body.role !== 'user' && body.role !== 'assistant') ||

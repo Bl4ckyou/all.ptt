@@ -12,7 +12,7 @@ import {
 } from '@ptt/backends';
 import type { AppContext } from '../context.js';
 import { readCustomBackends, writeCustomBackends } from '../custom-backends.js';
-import { readJson, sendError, sendJson } from '../http.js';
+import { sendError, sendJson, readJsonOrError } from '../http.js';
 import type { Handler } from '../router.js';
 import { isSafeId } from '../validation.js';
 
@@ -44,13 +44,8 @@ interface LocalBody {
 
 export function addLocalBackendRoute(context: AppContext): Handler {
   return async ({ req, res }) => {
-    let body: LocalBody;
-    try {
-      body = await readJson<LocalBody>(req);
-    } catch {
-      sendError(res, 400, 'error.bad_request');
-      return;
-    }
+    const body = await readJsonOrError<LocalBody>(req, res);
+    if (!body) return;
 
     const id = body.id;
     const label = labelOf(body.label);
@@ -147,13 +142,8 @@ interface GithubBody {
 
 export function addGithubBackendRoute(context: AppContext): Handler {
   return async ({ req, res }) => {
-    let body: GithubBody;
-    try {
-      body = await readJson<GithubBody>(req);
-    } catch {
-      sendError(res, 400, 'error.bad_request');
-      return;
-    }
+    const body = await readJsonOrError<GithubBody>(req, res);
+    if (!body) return;
 
     const id = body.id;
     const label = labelOf(body.label);

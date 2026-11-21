@@ -289,3 +289,4 @@ manage-sections = Sections
 manage-page-prev = Page précédente
 manage-page-next = Page suivante
 manage-page-status = Page { $page } / { $pages }
+app-start-failed = Le démarrage d’all.ptt a échoué.

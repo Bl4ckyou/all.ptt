@@ -28,6 +28,26 @@ export function sendError(res: ServerResponse, status: number, code: string): vo
 
 const MAX_BODY_BYTES = 1024 * 1024;
 
+export async function readJsonOrError<T>(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<T | null> {
+  try {
+    return await readJson<T>(req);
+  } catch {
+    sendError(res, 400, 'error.bad_request');
+    return null;
+  }
+}
+
+export async function readJsonOrFallback<T>(req: IncomingMessage, fallback: T): Promise<T> {
+  try {
+    return await readJson<T>(req);
+  } catch {
+    return fallback;
+  }
+}
+
 export async function readJson<T>(req: IncomingMessage, limit = MAX_BODY_BYTES): Promise<T> {
   const chunks: Buffer[] = [];
   let size = 0;

@@ -2,7 +2,7 @@ import { dirname, isAbsolute } from 'node:path';
 import { stat } from 'node:fs/promises';
 import { listModelDirectories, readGgufInfo, revealPath, scanLocalFiles } from '@ptt/backends';
 import type { AppContext } from '../context.js';
-import { readJson, sendError, sendJson } from '../http.js';
+import { sendError, sendJson, readJsonOrError } from '../http.js';
 import { refreshQuantTypes } from '../quant-types.js';
 import type { Handler } from '../router.js';
 import { isGgufPath, isWithin } from '../validation.js';
@@ -53,13 +53,8 @@ interface RevealBody {
 
 export function revealModelRoute(context: AppContext): Handler {
   return async ({ req, res }) => {
-    let body: RevealBody;
-    try {
-      body = await readJson<RevealBody>(req);
-    } catch {
-      sendError(res, 400, 'error.bad_request');
-      return;
-    }
+    const body = await readJsonOrError<RevealBody>(req, res);
+    if (!body) return;
 
     if (!body.path || !isAbsolute(body.path)) {
       sendError(res, 400, 'error.bad_request');
